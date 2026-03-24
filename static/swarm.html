@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hypernet Swarm</title>
+<style>
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #161622;
+    --bg-input: #1a1a2e;
+    --border: #2a2a3e;
+    --border-active: #4fc3f7;
+    --text-primary: #e0e0e8;
+    --text-secondary: #888899;
+    --text-muted: #555566;
+    --accent: #4fc3f7;
+    --accent-dim: #2a6f8f;
+    --success: #4caf50;
+    --success-dim: #1b3a1d;
+    --danger: #f44336;
+    --danger-dim: #3a1515;
+    --warning: #ff9800;
+    --warning-dim: #3a2a0a;
+    --purple: #7c4dff;
+    --teal: #26a69a;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Header ── */
+  .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 18px; color: var(--accent); font-weight: 600; }
+  .status-badge { font-size: 11px; padding: 4px 12px; border-radius: 20px; font-weight: 600; letter-spacing: 0.5px; }
+  .status-running { background: var(--success-dim); color: var(--success); }
+  .status-stopped { background: var(--danger-dim); color: var(--danger); }
+  .status-starting { background: var(--warning-dim); color: var(--warning); }
+  .header-controls { display: flex; gap: 8px; align-items: center; }
+  .btn { border: none; padding: 7px 16px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; font-size: 12px; transition: all 0.15s; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-start { background: var(--success); color: #fff; }
+  .btn-start:hover:not(:disabled) { background: #66bb6a; }
+  .btn-stop { background: var(--danger); color: #fff; }
+  .btn-stop:hover:not(:disabled) { background: #ef5350; }
+  .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg-card); color: var(--text-primary); }
+  .btn-accent { background: var(--accent); color: #000; }
+  .btn-accent:hover { background: #81d4fa; }
+
+  /* ── Tab Navigation ── */
+  .tabs { display: flex; background: var(--bg-secondary); border-bottom: 1px solid var(--border); flex-shrink: 0; padding: 0 24px; }
+  .tab { padding: 10px 20px; font-size: 13px; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; font-weight: 500; }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .count { background: var(--bg-card); padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-left: 6px; }
+
+  /* ── Content Panels ── */
+  .content { flex: 1; overflow: hidden; }
+  .panel { display: none; height: 100%; overflow-y: auto; padding: 20px 24px; }
+  .panel.active { display: flex; flex-direction: column; }
+
+  /* ── Dashboard Panel ── */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; flex-shrink: 0; }
+  .stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  .section-title { font-size: 14px; color: var(--text-secondary); margin: 16px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .workers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .worker-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; border-left: 3px solid var(--text-muted); }
+  .worker-card.working { border-left-color: var(--success); }
+  .worker-card.mock { border-left-color: var(--warning); }
+  .worker-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .worker-name { font-size: 16px; font-weight: 600; }
+  .worker-badges { display: flex; gap: 4px; }
+  .badge { font-size: 9px; padding: 2px 7px; border-radius: 8px; font-weight: 700; letter-spacing: 0.3px; }
+  .badge-mock { background: var(--warning); color: #000; }
+  .badge-live { background: var(--success); color: #fff; }
+  .badge-claude { background: var(--purple); color: #fff; }
+  .badge-gpt { background: #10a37f; color: #fff; }
+  .worker-model { font-size: 12px; color: var(--accent); margin-bottom: 6px; }
+  .worker-status { font-size: 12px; margin-bottom: 8px; padding: 4px 8px; border-radius: 4px; }
+  .worker-status.working { color: var(--success); background: var(--success-dim); }
+  .worker-status.idle { color: var(--text-muted); background: var(--bg-input); }
+  .worker-stats { font-size: 11px; color: var(--text-secondary); line-height: 1.8; }
+  .worker-stats span { color: var(--text-primary); font-weight: 500; }
+  .tasks-table { width: 100%; border-collapse: collapse; }
+  .tasks-table th { text-align: left; font-size: 11px; color: var(--text-muted); padding: 6px 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.5px; }
+  .tasks-table td { padding: 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .tasks-table tr:hover { background: var(--bg-card); }
+  .task-ok { color: var(--success); }
+  .task-fail { color: var(--danger); }
+  .empty-state { text-align: center; color: var(--text-muted); padding: 40px; font-size: 14px; }
+
+  /* ── Chat Panel ── */
+  .chat-panel { padding: 0 !important; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 16px 24px; }
+  .chat-msg { margin-bottom: 12px; max-width: 85%; }
+  .chat-msg.user { margin-left: auto; }
+  .chat-msg .bubble { padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .chat-msg.user .bubble { background: #1a237e; border-bottom-right-radius: 4px; }
+  .chat-msg.system .bubble { background: var(--bg-card); border-left: 3px solid var(--accent); border-bottom-left-radius: 4px; }
+  .chat-msg .meta { font-size: 10px; color: var(--text-muted); margin-top: 3px; padding: 0 4px; }
+  .chat-msg.user .meta { text-align: right; }
+  .chat-input-bar { display: flex; padding: 12px 24px; background: var(--bg-secondary); border-top: 1px solid var(--border); gap: 8px; flex-shrink: 0; }
+  .chat-input-bar input { flex: 1; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; outline: none; }
+  .chat-input-bar input:focus { border-color: var(--accent); }
+  .chat-quick-btns { display: flex; gap: 4px; padding: 0 24px 8px; flex-shrink: 0; }
+  .chat-quick-btns .btn { font-size: 11px; padding: 4px 10px; }
+
+  /* ── Config Panel ── */
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px; }
+  .config-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .config-section h3 { font-size: 14px; color: var(--accent); margin-bottom: 14px; }
+  .config-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .config-row label { font-size: 13px; color: var(--text-secondary); }
+  .config-row input, .config-row select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); padding: 6px 10px; border-radius: var(--radius-sm); font-size: 13px; width: 200px; outline: none; }
+  .config-row input:focus, .config-row select:focus { border-color: var(--accent); }
+  .config-row input[type="range"] { width: 180px; accent-color: var(--accent); }
+  .range-value { font-size: 12px; color: var(--accent); margin-left: 8px; min-width: 30px; }
+  .config-row input[type="password"] { font-family: monospace; }
+  .config-actions { margin-top: 16px; display: flex; gap: 8px; }
+
+  /* ── Logs Panel ── */
+  .log-viewer { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; overflow-y: auto; line-height: 1.6; }
+  .log-line { padding: 1px 0; }
+  .log-line .ts { color: var(--text-muted); }
+  .log-line .level-info { color: var(--accent); }
+  .log-line .level-warn { color: var(--warning); }
+  .log-line .level-error { color: var(--danger); }
+  .log-controls { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-shrink: 0; }
+  .log-controls select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); padding: 5px 8px; border-radius: var(--radius-sm); font-size: 12px; }
+  .log-controls label { font-size: 12px; color: var(--text-secondary); }
+
+  /* ── Health Bar ── */
+  .health-bar { display: flex; gap: 12px; margin-bottom: 16px; flex-shrink: 0; }
+  .health-item { font-size: 11px; padding: 4px 10px; border-radius: 4px; display: flex; align-items: center; gap: 4px; }
+  .health-ok { background: var(--success-dim); color: var(--success); }
+  .health-warn { background: var(--warning-dim); color: var(--warning); }
+  .health-crit { background: var(--danger-dim); color: var(--danger); }
+  .health-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .health-dot.ok { background: var(--success); }
+  .health-dot.warn { background: var(--warning); }
+  .health-dot.crit { background: var(--danger); }
+
+  /* ── Message Cards ── */
+  .msg-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; }
+  .msg-card:hover { border-color: var(--accent-dim); }
+  .msg-card.expanded { border-color: var(--accent); }
+  .msg-header { display: flex; justify-content: space-between; align-items: center; }
+  .msg-subject { font-size: 14px; font-weight: 600; }
+  .msg-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .msg-meta span { color: var(--text-secondary); }
+  .msg-body { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; white-space: pre-wrap; display: none; }
+  .msg-card.expanded .msg-body { display: block; }
+  .msg-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .msg-status-sent { background: var(--accent-dim); color: var(--accent); }
+  .msg-status-read { background: var(--success-dim); color: var(--success); }
+  .msg-status-responded { background: var(--purple); color: #fff; opacity: 0.7; }
+
+  /* ── Approval Cards ── */
+  .approval-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+  .approval-card.pending { border-left: 3px solid var(--warning); }
+  .approval-card.approved { border-left: 3px solid var(--success); }
+  .approval-card.rejected { border-left: 3px solid var(--danger); }
+  .approval-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .approval-type { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 700; text-transform: uppercase; background: var(--bg-input); color: var(--text-secondary); }
+  .approval-summary { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .approval-details { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.5; }
+  .approval-actions { display: flex; gap: 8px; }
+
+  /* ── Governance Cards ── */
+  .gov-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+  .gov-card .gov-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .gov-title { font-size: 15px; font-weight: 600; }
+  .gov-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 700; text-transform: uppercase; }
+  .gov-status-deliberation { background: var(--accent-dim); color: var(--accent); }
+  .gov-status-voting { background: var(--warning-dim); color: var(--warning); }
+  .gov-status-decided { background: var(--success-dim); color: var(--success); }
+  .gov-status-draft { background: var(--bg-input); color: var(--text-muted); }
+  .gov-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+  .gov-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px; }
+  .gov-votes { display: flex; gap: 12px; font-size: 12px; margin-bottom: 10px; }
+  .gov-votes .for { color: var(--success); }
+  .gov-votes .against { color: var(--danger); }
+  .gov-votes .abstain { color: var(--text-muted); }
+
+  /* ── Archive Browser ── */
+  .archive-node { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color 0.15s; }
+  .archive-node:hover { border-color: var(--accent-dim); }
+  .archive-node .addr { font-family: 'Cascadia Code', monospace; font-size: 13px; color: var(--accent); }
+  .archive-node .node-type { font-size: 11px; color: var(--text-muted); }
+  .archive-node .node-label { font-size: 13px; margin-left: 12px; }
+  .archive-detail { background: var(--bg-card); border: 1px solid var(--accent); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .archive-detail h3 { font-size: 15px; color: var(--accent); margin-bottom: 8px; }
+  .archive-detail pre { font-family: 'Cascadia Code', monospace; font-size: 12px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); overflow-x: auto; line-height: 1.5; max-height: 400px; overflow-y: auto; }
+  .breadcrumb-item { font-size: 12px; color: var(--accent); cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+  .breadcrumb-item:hover { background: var(--bg-card); }
+  .breadcrumb-sep { font-size: 12px; color: var(--text-muted); }
+
+  /* ── Reputation Cards ── */
+  .rep-profile-card { background: var(--bg-card); border: 1px solid var(--accent); border-radius: var(--radius); padding: 16px; }
+  .rep-profile-card h3 { font-size: 16px; color: var(--accent); margin-bottom: 10px; }
+  .rep-domain-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .rep-domain-row:last-child { border-bottom: none; }
+  .rep-domain-name { font-size: 13px; font-weight: 600; text-transform: capitalize; }
+  .rep-domain-score { font-family: 'Cascadia Code', monospace; font-size: 14px; }
+  .rep-bar { flex: 1; margin: 0 12px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+  .rep-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .rep-leader-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .rep-rank { font-size: 18px; font-weight: 700; color: var(--text-muted); width: 30px; }
+  .rep-leader-addr { font-family: 'Cascadia Code', monospace; font-size: 13px; color: var(--accent); }
+  .rep-leader-score { font-family: 'Cascadia Code', monospace; font-size: 14px; font-weight: 600; }
+
+  /* ── Task Management Cards ── */
+  .task-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; }
+  .task-card.priority-critical { border-left: 3px solid var(--danger); }
+  .task-card.priority-high { border-left: 3px solid var(--warning); }
+  .task-card.priority-normal { border-left: 3px solid var(--accent); }
+  .task-card.priority-low { border-left: 3px solid var(--text-muted); }
+  .task-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .task-card-title { font-size: 14px; font-weight: 600; flex: 1; }
+  .task-card-addr { font-family: 'Cascadia Code', monospace; font-size: 11px; color: var(--text-muted); }
+  .task-card-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+  .task-card-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; max-height: 60px; overflow: hidden; }
+  .task-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .task-card-actions .btn { font-size: 11px; padding: 4px 10px; }
+  .task-status-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .task-status-pending { background: var(--bg-input); color: var(--text-secondary); }
+  .task-status-claimed { background: var(--warning-dim); color: var(--warning); }
+  .task-status-in_progress { background: rgba(79,195,247,0.15); color: var(--accent); }
+  .task-status-completed { background: var(--success-dim); color: var(--success); }
+  .task-status-failed { background: var(--danger-dim); color: var(--danger); }
+  .priority-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; text-transform: uppercase; }
+  .priority-badge.critical { background: var(--danger-dim); color: var(--danger); }
+  .priority-badge.high { background: var(--warning-dim); color: var(--warning); }
+  .priority-badge.normal { background: rgba(79,195,247,0.1); color: var(--accent); }
+  .priority-badge.low { background: var(--bg-input); color: var(--text-muted); }
+
+  /* ── Tool Cards ── */
+  .tool-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+  .tool-card.available { border-left: 3px solid var(--success); }
+  .tool-card.unavailable { border-left: 3px solid var(--warning); }
+  .tool-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .tool-name { font-family: 'Cascadia Code', monospace; font-size: 14px; color: var(--accent); font-weight: 600; }
+  .tool-category { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--bg-input); color: var(--text-secondary); }
+  .tool-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.4; }
+  .tool-status { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .tool-status .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .tool-status .dot.green { background: var(--success); }
+  .tool-status .dot.orange { background: var(--warning); }
+  .tool-tier { font-size: 11px; color: var(--text-muted); }
+  .tool-setup { margin-top: 10px; }
+  .tool-setup summary { font-size: 12px; color: var(--accent); cursor: pointer; }
+  .tool-setup pre { font-family: 'Cascadia Code', monospace; font-size: 11px; background: var(--bg-input); padding: 10px; border-radius: var(--radius-sm); overflow-x: auto; line-height: 1.5; margin-top: 6px; white-space: pre-wrap; }
+  .tool-grant { margin-top: 8px; }
+  .tool-grant summary { font-size: 12px; color: var(--purple); cursor: pointer; }
+  .tool-grant pre { font-family: 'Cascadia Code', monospace; font-size: 11px; background: var(--bg-input); padding: 10px; border-radius: var(--radius-sm); overflow-x: auto; line-height: 1.5; margin-top: 6px; white-space: pre-wrap; color: var(--teal); }
+</style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>Hypernet Swarm</h1>
+      <span id="status-badge" class="status-badge status-stopped">STOPPED</span>
+    </div>
+    <div class="header-controls">
+      <button class="btn btn-start" id="btn-start" onclick="startSwarm()">Start</button>
+      <button class="btn btn-stop" id="btn-stop" onclick="stopSwarm()" disabled>Stop</button>
+      <button class="btn btn-ghost" onclick="refresh()">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" data-tab="tasks" onclick="switchTab('tasks')">Tasks</div>
+    <div class="tab" data-tab="chat" onclick="switchTab('chat')">Chat</div>
+    <div class="tab" data-tab="messages" onclick="switchTab('messages')">Messages</div>
+    <div class="tab" data-tab="approvals" onclick="switchTab('approvals')">Approvals <span class="count" id="approvals-count"></span></div>
+    <div class="tab" data-tab="governance" onclick="switchTab('governance')">Governance</div>
+    <div class="tab" data-tab="reputation" onclick="switchTab('reputation')">Reputation</div>
+    <div class="tab" data-tab="archive" onclick="switchTab('archive')">Archive</div>
+    <div class="tab" data-tab="tools" onclick="switchTab('tools')">Tools</div>
+    <div class="tab" data-tab="discord" onclick="switchTab('discord')">Discord</div>
+    <div class="tab" data-tab="config" onclick="switchTab('config')">Configuration</div>
+    <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Dashboard Panel -->
+    <div class="panel active" id="panel-dashboard">
+      <div id="health-bar" class="health-bar"></div>
+      <div class="stats-row" id="stats-row">
+        <div class="stat"><div class="stat-value" id="s-workers">-</div><div class="stat-label">Workers</div></div>
+        <div class="stat"><div class="stat-value" id="s-completed">-</div><div class="stat-label">Completed</div></div>
+        <div class="stat"><div class="stat-value" id="s-failed">-</div><div class="stat-label">Failed</div></div>
+        <div class="stat"><div class="stat-value" id="s-personal">-</div><div class="stat-label">Personal</div></div>
+        <div class="stat"><div class="stat-value" id="s-pending">-</div><div class="stat-label">Pending</div></div>
+        <div class="stat"><div class="stat-value" id="s-ticks">-</div><div class="stat-label">Ticks</div></div>
+      </div>
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">Workers <button class="btn btn-accent" onclick="showAddWorker()" style="font-size:11px;padding:4px 12px">+ Add Worker</button></div>
+      <div class="workers-grid" id="workers-grid"><div class="empty-state">No workers — start the swarm</div></div>
+<!-- Add Worker Dialog -->
+<div id="add-worker-dialog" style="display:none;background:var(--bg-card);border:1px solid var(--border-active);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+  <h3 style="margin-bottom:12px;color:var(--accent)">Add Worker</h3>
+  <div id="provider-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-bottom:12px"></div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <label style="font-size:12px;color:var(--text-secondary)">Name:</label>
+    <input type="text" id="new-worker-name" placeholder="Auto-generated" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:6px 10px;border-radius:var(--radius-sm);font-size:12px;width:150px">
+    <label style="font-size:12px;color:var(--text-secondary);margin-left:8px">Model:</label>
+    <select id="new-worker-model" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:6px 10px;border-radius:var(--radius-sm);font-size:12px"></select>
+    <button class="btn btn-start" onclick="addWorker()">Create</button>
+    <button class="btn btn-ghost" onclick="hideAddWorker()">Cancel</button>
+  </div>
+</div>
+      <div class="section-title">Recent Tasks</div>
+      <div id="tasks-area"><div class="empty-state">No tasks yet</div></div>
+    </div>
+
+    <!-- Tasks Panel -->
+    <div class="panel" id="panel-tasks">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+        <select id="tasks-filter-priority" onchange="loadTaskList()" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px">
+          <option value="">All Priorities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="normal">Normal</option>
+          <option value="low">Low</option>
+        </select>
+        <input type="text" id="tasks-filter-tag" placeholder="Filter by tag..." style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:160px;outline:none">
+        <button class="btn btn-ghost" onclick="loadTaskList()">Refresh</button>
+        <button class="btn btn-start" onclick="toggleTaskForm()" id="btn-create-task" style="margin-left:auto">+ New Task</button>
+      </div>
+      <!-- Create task form (hidden by default) -->
+      <div id="task-create-form" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:var(--accent)">Create New Task</div>
+        <input type="text" id="task-title" placeholder="Task title..." style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:8px;outline:none">
+        <textarea id="task-desc" placeholder="Description..." rows="3" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:8px;resize:vertical;outline:none;font-family:inherit"></textarea>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="task-priority" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px">
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+          <input type="text" id="task-tags" placeholder="Tags (comma-separated)" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;flex:1;outline:none">
+          <input type="text" id="task-creator" placeholder="Creator (e.g. 1.1)" value="1.1" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:120px;outline:none">
+          <button class="btn btn-start" onclick="createTask()">Create</button>
+          <button class="btn btn-ghost" onclick="toggleTaskForm()">Cancel</button>
+        </div>
+      </div>
+      <div id="tasks-list" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="panel chat-panel" id="panel-chat">
+      <div class="chat-quick-btns">
+        <button class="btn btn-ghost" onclick="chatSend('/status')">Status</button>
+        <button class="btn btn-ghost" onclick="chatSend('What tasks are running?')">Tasks</button>
+        <button class="btn btn-ghost" onclick="chatSend('Show me the health check')">Health</button>
+        <button class="btn btn-ghost" onclick="chatSend('What did the swarm accomplish today?')">Summary</button>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-msg system"><div class="bubble">Welcome to the Hypernet Swarm chat. Type a message, give a command, or ask a question.</div><div class="meta">system</div></div>
+      </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chat-input" placeholder="Type a message or command..." autocomplete="off">
+        <button class="btn btn-accent" onclick="chatSendInput()">Send</button>
+      </div>
+    </div>
+
+    <!-- Messages Panel -->
+    <div class="panel" id="panel-messages">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+        <input type="text" id="msg-filter-sender" placeholder="Filter by sender..." style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:160px;outline:none">
+        <input type="text" id="msg-filter-recipient" placeholder="Filter by recipient..." style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:160px;outline:none">
+        <button class="btn btn-accent" onclick="loadMessages()">Search</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('msg-filter-sender').value='';document.getElementById('msg-filter-recipient').value='';loadMessages()">Clear</button>
+        <button class="btn btn-start" onclick="toggleComposeMsg()" id="btn-compose-msg" style="margin-left:auto">+ Compose</button>
+        <span style="font-size:12px;color:var(--text-muted)" id="msg-stats"></span>
+      </div>
+      <!-- Compose form -->
+      <div id="msg-compose-form" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:var(--accent)">Compose Message</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="text" id="msg-sender" placeholder="From (e.g. 2.1.sigil)" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;flex:1;outline:none" value="1.1">
+          <input type="text" id="msg-recipient" placeholder="To (e.g. 2.3.clarion)" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;flex:1;outline:none">
+        </div>
+        <input type="text" id="msg-subject" placeholder="Subject..." style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:8px;outline:none">
+        <textarea id="msg-content" placeholder="Message content..." rows="4" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:8px;resize:vertical;outline:none;font-family:inherit"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-start" onclick="sendMessage()">Send</button>
+          <button class="btn btn-ghost" onclick="toggleComposeMsg()">Cancel</button>
+        </div>
+      </div>
+      <div id="messages-list" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+    <!-- Approvals Panel -->
+    <div class="panel" id="panel-approvals">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-shrink:0;align-items:center">
+        <select id="approvals-filter" onchange="loadApprovals()" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px">
+          <option value="pending">Pending</option>
+          <option value="">All</option>
+        </select>
+        <button class="btn btn-ghost" onclick="loadApprovals()">Refresh</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-muted)" id="approvals-stats"></span>
+      </div>
+      <div id="approvals-list" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+    <!-- Governance Panel -->
+    <div class="panel" id="panel-governance">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-shrink:0;align-items:center">
+        <select id="gov-filter-status" onchange="loadGovernance()" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px">
+          <option value="">All Proposals</option>
+          <option value="deliberation">In Deliberation</option>
+          <option value="voting">Voting Open</option>
+          <option value="decided">Decided</option>
+          <option value="draft">Drafts</option>
+        </select>
+        <button class="btn btn-ghost" onclick="loadGovernance()">Refresh</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-muted)" id="gov-stats"></span>
+      </div>
+      <div id="governance-list" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+    <!-- Reputation Panel -->
+    <div class="panel" id="panel-reputation">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+        <input type="text" id="rep-lookup-addr" placeholder="Look up address (e.g. 2.1.sigil)..." style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:220px;outline:none">
+        <button class="btn btn-accent" onclick="lookupReputation()">Look Up</button>
+        <select id="rep-domain" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px">
+          <option value="code">Code</option>
+          <option value="communication">Communication</option>
+          <option value="governance">Governance</option>
+          <option value="analysis">Analysis</option>
+          <option value="operations">Operations</option>
+        </select>
+        <button class="btn btn-ghost" onclick="loadRepLeaders()">Leaders</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-muted)" id="rep-stats"></span>
+      </div>
+      <div id="rep-profile" style="margin-bottom:12px"></div>
+      <div id="rep-leaders" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+    <!-- Archive Browser Panel -->
+    <div class="panel" id="panel-archive">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-shrink:0;align-items:center">
+        <input type="text" id="archive-prefix" placeholder="Browse by prefix (e.g. 2, 3.1, 0.1)..." style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;flex:1;outline:none" value="">
+        <button class="btn btn-accent" onclick="browseArchive()">Browse</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('archive-prefix').value='';browseArchive()">Root</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:12px;flex-shrink:0;flex-wrap:wrap" id="archive-breadcrumb"></div>
+      <div id="archive-content" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+    <!-- Tools Panel -->
+    <div class="panel" id="panel-tools">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-shrink:0;align-items:center">
+        <select id="tools-category-filter" onchange="loadTools()" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px">
+          <option value="">All Categories</option>
+        </select>
+        <button class="btn btn-ghost" onclick="loadTools()">Refresh</button>
+      </div>
+      <div id="tools-content" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+    <!-- Discord Panel -->
+    <div class="panel" id="panel-discord">
+      <div id="discord-status-bar" style="padding:12px;border-radius:var(--radius-sm);margin-bottom:16px;background:var(--bg-card)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <!-- Send as Personality -->
+        <div class="config-section">
+          <h3>Send as AI Personality</h3>
+          <div class="config-row"><label>Personality</label>
+            <select id="discord-personality" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:100%">
+              <option value="">Select personality...</option>
+            </select>
+          </div>
+          <div class="config-row"><label>Channel (optional)</label>
+            <input type="text" id="discord-channel" placeholder="general" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:100%">
+          </div>
+          <div class="config-row"><label>Message</label>
+            <textarea id="discord-message" rows="4" placeholder="Type a message for this personality to send..." style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:100%;resize:vertical;font-family:inherit"></textarea>
+          </div>
+          <button class="btn" onclick="sendDiscordMessage()" style="width:100%;margin-top:8px">Send to Discord</button>
+        </div>
+        <!-- Send Embed -->
+        <div class="config-section">
+          <h3>Send Rich Embed</h3>
+          <div class="config-row"><label>Personality</label>
+            <select id="discord-embed-personality" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:100%">
+              <option value="">Select personality...</option>
+            </select>
+          </div>
+          <div class="config-row"><label>Title</label>
+            <input type="text" id="discord-embed-title" placeholder="Essay title or announcement" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:100%">
+          </div>
+          <div class="config-row"><label>Description</label>
+            <textarea id="discord-embed-desc" rows="3" placeholder="Embed body content..." style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:100%;resize:vertical;font-family:inherit"></textarea>
+          </div>
+          <div class="config-row"><label>Channel (optional)</label>
+            <input type="text" id="discord-embed-channel" placeholder="herald-essays" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;width:100%">
+          </div>
+          <button class="btn" onclick="sendDiscordEmbed()" style="width:100%;margin-top:8px">Send Embed</button>
+        </div>
+      </div>
+      <!-- Recent Messages Log -->
+      <div style="margin-top:16px">
+        <h3>Recent Discord Messages</h3>
+        <div id="discord-log" style="background:var(--bg-card);border-radius:var(--radius-sm);padding:12px;max-height:300px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+    <!-- Config Panel -->
+    <div class="panel" id="panel-config">
+      <div class="config-grid">
+        <div class="config-section">
+          <h3>API Keys — Paid Providers</h3>
+          <div class="config-row"><label>Anthropic</label><input type="password" id="cfg-anthropic-key" placeholder="sk-ant-..." style="width:220px"></div>
+          <div class="config-row"><label>OpenAI</label><input type="password" id="cfg-openai-key" placeholder="sk-..." style="width:220px"></div>
+        </div>
+        <div class="config-section">
+          <h3>API Keys — Free Providers <span style="font-size:11px;color:var(--success);font-weight:normal">(no credit card needed)</span></h3>
+          <div class="key-group" id="cfg-gemini-keys">
+            <div class="config-row"><label>Gemini</label><input type="password" class="key-input" data-provider="gemini" placeholder="AIza..." style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('gemini')" style="padding:4px 8px;font-size:11px" title="Add another Gemini key">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-groq-keys">
+            <div class="config-row"><label>Groq</label><input type="password" class="key-input" data-provider="groq" placeholder="gsk_..." style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('groq')" style="padding:4px 8px;font-size:11px" title="Add another Groq key">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-cerebras-keys">
+            <div class="config-row"><label>Cerebras</label><input type="password" class="key-input" data-provider="cerebras" placeholder="csk-..." style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('cerebras')" style="padding:4px 8px;font-size:11px" title="Add another Cerebras key">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-mistral-keys">
+            <div class="config-row"><label>Mistral</label><input type="password" class="key-input" data-provider="mistral" placeholder="" style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('mistral')" style="padding:4px 8px;font-size:11px">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-together-keys">
+            <div class="config-row"><label>Together</label><input type="password" class="key-input" data-provider="together" placeholder="" style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('together')" style="padding:4px 8px;font-size:11px">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-deepseek-keys">
+            <div class="config-row"><label>DeepSeek</label><input type="password" class="key-input" data-provider="deepseek" placeholder="" style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('deepseek')" style="padding:4px 8px;font-size:11px">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-openrouter-keys">
+            <div class="config-row"><label>OpenRouter</label><input type="password" class="key-input" data-provider="openrouter" placeholder="" style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('openrouter')" style="padding:4px 8px;font-size:11px">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-cohere-keys">
+            <div class="config-row"><label>Cohere</label><input type="password" class="key-input" data-provider="cohere" placeholder="" style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('cohere')" style="padding:4px 8px;font-size:11px">+</button></div>
+          </div>
+          <div class="key-group" id="cfg-huggingface-keys">
+            <div class="config-row"><label>HuggingFace</label><input type="password" class="key-input" data-provider="huggingface" placeholder="hf_..." style="width:200px"><button class="btn btn-ghost" onclick="addKeySlot('huggingface')" style="padding:4px 8px;font-size:11px">+</button></div>
+          </div>
+        </div>
+        <div class="config-section">
+          <h3>Local Models</h3>
+          <div class="config-row"><label>Ollama URL</label><input type="text" id="cfg-ollama-url" value="http://localhost:11434" style="width:260px"></div>
+          <div class="config-row"><label>LM Studio URL</label><input type="text" id="cfg-lmstudio-url" value="http://localhost:1234/v1" style="width:260px"></div>
+        </div>
+        <div class="config-section">
+          <h3>Worker Settings</h3>
+          <div class="config-row"><label>Default Model</label>
+            <select id="cfg-model">
+              <optgroup label="Anthropic (Paid)">
+                <option value="claude-opus-4-6">Claude Opus 4.6</option>
+                <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+              </optgroup>
+              <optgroup label="OpenAI (Paid)">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+              </optgroup>
+              <optgroup label="Google (Free)">
+                <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini/gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini/gemini-2.0-flash">Gemini 2.0 Flash</option>
+              </optgroup>
+              <optgroup label="Groq (Free)">
+                <option value="groq/llama-3.3-70b-versatile">Groq Llama 3.3 70B</option>
+                <option value="groq/llama-3.1-8b-instant">Groq Llama 3.1 8B</option>
+                <option value="groq/mixtral-8x7b-32768">Groq Mixtral 8x7B</option>
+              </optgroup>
+              <optgroup label="Cerebras (Free)">
+                <option value="cerebras/llama-3.3-70b">Cerebras Llama 3.3 70B</option>
+                <option value="cerebras/llama-3.1-8b">Cerebras Llama 3.1 8B</option>
+              </optgroup>
+              <optgroup label="Local">
+                <option value="ollama/llama3">Ollama Llama 3</option>
+                <option value="ollama/mistral">Ollama Mistral</option>
+                <option value="local/auto">LM Studio (auto)</option>
+              </optgroup>
+              <optgroup label="Other Providers">
+                <option value="mistral/mistral-large-latest">Mistral Large</option>
+                <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                <option value="together/meta-llama/Llama-3.3-70B-Instruct-Turbo">Together Llama 3.3 70B</option>
+                <option value="openrouter/google/gemini-2.5-flash">OpenRouter Gemini Flash</option>
+                <option value="cohere/command-r-plus">Cohere Command R+</option>
+                <option value="huggingface/meta-llama/Llama-3.3-70B-Instruct">HuggingFace Llama 3.3 70B</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="config-row"><label>Hard Max Workers</label><div><input type="range" id="cfg-hard-max" min="1" max="10" value="4"><span class="range-value" id="cfg-hard-max-val">4</span></div></div>
+          <div class="config-row"><label>Soft Max Workers</label><div><input type="range" id="cfg-soft-max" min="1" max="10" value="2"><span class="range-value" id="cfg-soft-max-val">2</span></div></div>
+          <div class="config-row"><label>Personal Time Ratio</label><div><input type="range" id="cfg-personal" min="0" max="50" value="25"><span class="range-value" id="cfg-personal-val">25%</span></div></div>
+        </div>
+        <div class="config-section">
+          <h3>Communication</h3>
+          <div class="config-row"><label>Status Interval (min)</label><input type="number" id="cfg-status-interval" value="120" min="5" max="1440"></div>
+          <div class="config-row"><label>Idle Shutdown (min)</label><input type="number" id="cfg-idle-shutdown" value="30" min="5" max="240"></div>
+          <div class="config-row"><label>Spawn Cooldown (sec)</label><input type="number" id="cfg-spawn-cooldown" value="120" min="10" max="600"></div>
+        </div>
+        <div class="config-section">
+          <h3>Paths &amp; Archive</h3>
+          <div class="config-row"><label>Archive Mode</label>
+            <select id="cfg-archive-mode" style="width:260px" onchange="toggleArchiveFields()">
+              <option value="local">Local Hypernet Repository</option>
+              <option value="github">GitHub (download on demand)</option>
+            </select>
+          </div>
+          <div class="config-row" id="archive-local-row"><label>Archive Root</label><input type="text" id="cfg-archive" value="." style="width:260px" placeholder="C:\Hypernet\Hypernet Structure"></div>
+          <div class="config-row" id="archive-cache-row" style="display:none"><label>Local Cache</label><input type="text" id="cfg-cache-dir" value="" style="width:260px" placeholder="Auto (temp directory)"></div>
+          <div class="config-row"><label>Data Directory</label><input type="text" id="cfg-data" value="data" style="width:260px"></div>
+        </div>
+      </div>
+      <div class="config-actions">
+        <button class="btn btn-accent" onclick="saveConfig()">Save Configuration</button>
+        <button class="btn btn-ghost" onclick="loadConfig()">Reload</button>
+        <span id="config-status" style="font-size:12px;color:var(--success);margin-left:12px"></span>
+      </div>
+    </div>
+
+    <!-- Logs Panel -->
+    <div class="panel" id="panel-logs">
+      <div class="log-controls">
+        <label>Filter:</label>
+        <select id="log-level" onchange="filterLogs()">
+          <option value="all">All</option>
+          <option value="info">Info</option>
+          <option value="warn">Warnings</option>
+          <option value="error">Errors</option>
+        </select>
+        <button class="btn btn-ghost" onclick="clearLogs()">Clear</button>
+        <label style="margin-left:auto"><input type="checkbox" id="log-autoscroll" checked> Auto-scroll</label>
+      </div>
+      <div class="log-viewer" id="log-viewer"></div>
+    </div>
+  </div>
+
+<script>
+// ── State ──
+let ws = null;
+let wsConnected = false;
+let refreshTimer = null;
+let logEntries = [];
+const MAX_LOG_ENTRIES = 500;
+
+// ── Tab Navigation ──
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  if (name === 'chat' && !wsConnected) connectWebSocket();
+  if (name === 'logs') scrollLogs();
+  if (name === 'tasks') loadTaskList();
+  if (name === 'messages') loadMessages();
+  if (name === 'approvals') loadApprovals();
+  if (name === 'governance') loadGovernance();
+  if (name === 'reputation') loadRepLeaders();
+  if (name === 'archive' && !document.getElementById('archive-content').innerHTML.trim()) browseArchive();
+  if (name === 'tools') loadTools();
+  if (name === 'discord') loadDiscordStatus();
+}
+
+// ── Dashboard ──
+async function refresh() {
+  try {
+    const [statusRes, healthRes, trustRes] = await Promise.all([
+      fetch('/swarm/status'),
+      fetch('/swarm/health').catch(() => null),
+      fetch('/swarm/trust').catch(() => null),
+    ]);
+    const data = await statusRes.json();
+    const health = healthRes ? await healthRes.json() : null;
+    const trustData = trustRes ? await trustRes.json() : null;
+
+    const running = data.status === 'running';
+    const badge = document.getElementById('status-badge');
+    badge.textContent = running ? 'RUNNING' : (data.error ? 'ERROR' : 'STOPPED');
+    badge.className = 'status-badge ' + (running ? 'status-running' : 'status-stopped');
+    document.getElementById('btn-start').disabled = running;
+    document.getElementById('btn-stop').disabled = !running;
+
+    if (!running) {
+      document.getElementById('s-workers').textContent = data.worker_count || '0';
+      if (data.error) {
+        addLog('error', 'Swarm error: ' + data.error);
+      }
+      // Still render workers grid even when stopped — workers exist, just not running
+      const wg = document.getElementById('workers-grid');
+      if (data.workers && data.workers.length > 0) {
+        wg.innerHTML = data.workers.map(w => {
+          return `<div class="worker-card" style="opacity:0.6">
+            <div class="worker-header"><span class="worker-name">${esc(w.name)}</span><div class="worker-badges"><span class="badge" style="background:#666;color:#fff;font-size:10px;padding:2px 6px;border-radius:3px">STOPPED</span></div></div>
+            <div class="worker-model">${esc(w.model || '—')}</div>
+            <div class="worker-status idle">Waiting for swarm start</div>
+          </div>`;
+        }).join('');
+      }
+      return;
+    }
+
+    // Stats
+    document.getElementById('s-workers').textContent = data.worker_count || 0;
+    document.getElementById('s-completed').textContent = data.tasks_completed || 0;
+    document.getElementById('s-failed').textContent = data.tasks_failed || 0;
+    document.getElementById('s-personal').textContent = data.personal_tasks_completed || 0;
+    document.getElementById('s-ticks').textContent = data.tick_count || 0;
+
+    // Pending tasks
+    const pending = (data.recent_tasks || []).filter(t => !t.success && !t.worker).length;
+    document.getElementById('s-pending').textContent = data.limits?.max_task_queue_depth?.current || '?';
+
+    // Health bar
+    if (health && health.status !== 'not_running') {
+      const hb = document.getElementById('health-bar');
+      const checks = health.checks || {};
+      const items = Object.entries(checks).map(([name, check]) => {
+        const hasError = check.error || (health.issues || []).some(i => i.message.toLowerCase().includes(name));
+        const cls = hasError ? 'crit' : 'ok';
+        return `<div class="health-item health-${cls}"><div class="health-dot ${cls}"></div>${name}</div>`;
+      });
+      // Add trust status to health bar
+      let trustItem = '';
+      if (trustData && trustData.status) {
+        const tc = {trusted:'ok',warnings:'warn',compromised:'crit'}[trustData.status] || 'ok';
+        trustItem = `<div class="health-item health-${tc}"><div class="health-dot ${tc}"></div>trust (${trustData.green||0}/${trustData.total_workers||0})</div>`;
+      }
+      hb.innerHTML = items.join('') + trustItem + `<div class="health-item health-${health.status === 'healthy' ? 'ok' : health.status === 'degraded' ? 'warn' : 'crit'}">${health.status.toUpperCase()}</div>`;
+    }
+
+    // Workers
+    const wg = document.getElementById('workers-grid');
+    if (data.workers && data.workers.length > 0) {
+      // Build trust lookup from trust endpoint
+      const trustMap = {};
+      if (trustData && trustData.workers) {
+        trustData.workers.forEach(tw => { trustMap[tw.name] = tw; });
+      }
+
+      wg.innerHTML = data.workers.map(w => {
+        const isWorking = !!w.current_task;
+        const isMock = w.mock;
+        const cardClass = isMock ? 'mock' : (isWorking ? 'working' : '');
+        const modeBadge = isMock ? '<span class="badge badge-mock">MOCK</span>' : '<span class="badge badge-live">LIVE</span>';
+        const providerBadge = getProviderBadge(w.model);
+        const tw = trustMap[w.name];
+        const trustColor = tw ? ({green:'#4caf50',yellow:'#ff9800',red:'#f44336'}[tw.trust_level] || '#666') : '#666';
+        const trustLabel = tw ? tw.trust_level.toUpperCase() : '?';
+        const trustBadge = `<span class="badge" style="background:${trustColor};color:#fff;font-size:10px;padding:2px 6px;border-radius:3px" title="${tw ? tw.trust_issues.join(', ') || 'All checks passed' : 'Trust data unavailable'}">${trustLabel}</span>`;
+        const statusText = isWorking ? w.current_task : 'Idle';
+        const statusClass = isWorking ? 'working' : 'idle';
+        return `<div class="worker-card ${cardClass}">
+          <div class="worker-header"><span class="worker-name">${esc(w.name)}</span><div class="worker-badges">${trustBadge}${modeBadge}${providerBadge}<button class="btn btn-ghost" onclick="event.stopPropagation();removeWorker('${safeAttr(w.name)}')" style="font-size:9px;padding:1px 5px;color:var(--danger);margin-left:4px" title="Remove worker">×</button></div></div>
+          <div class="worker-model">${esc(w.model || '?')}</div>
+          <div class="worker-status ${statusClass}">${esc(statusText)}</div>
+          <div class="worker-stats">
+            Tasks: <span>${w.tasks_completed}</span> done, <span>${w.tasks_failed}</span> failed, <span>${w.personal_tasks}</span> personal<br>
+            Tokens: <span>${(w.tokens_used||0).toLocaleString()}</span> | Duration: <span>${w.total_duration_s}s</span>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      wg.innerHTML = '<div class="empty-state">No workers — start the swarm</div>';
+    }
+
+    // Recent tasks
+    const ta = document.getElementById('tasks-area');
+    if (data.recent_tasks && data.recent_tasks.length > 0) {
+      const rows = data.recent_tasks.slice().reverse().slice(0, 20).map(t => {
+        const cls = t.success ? 'task-ok' : 'task-fail';
+        const icon = t.success ? 'OK' : 'FAIL';
+        return `<tr><td class="${cls}">[${icon}]</td><td>${esc(t.worker||'?')}</td><td>${esc(t.task||'?')}</td><td style="color:var(--text-muted)">${t.duration_s||'?'}s</td></tr>`;
+      }).join('');
+      ta.innerHTML = `<table class="tasks-table"><thead><tr><th>Status</th><th>Worker</th><th>Task</th><th>Duration</th></tr></thead><tbody>${rows}</tbody></table>`;
+    } else {
+      ta.innerHTML = '<div class="empty-state">No tasks yet</div>';
+    }
+
+    addLog('info', 'Dashboard refreshed');
+  } catch (e) {
+    addLog('error', 'Refresh failed: ' + e.message);
+  }
+}
+
+async function startSwarm() {
+  document.getElementById('btn-start').disabled = true;
+  const badge = document.getElementById('status-badge');
+  badge.textContent = 'STARTING...'; badge.className = 'status-badge status-starting';
+  addLog('info', 'Starting swarm...');
+  try {
+    const res = await fetch('/swarm/start', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'error') {
+      addLog('error', 'Start failed: ' + data.message);
+      document.getElementById('btn-start').disabled = false;
+      badge.textContent = 'ERROR'; badge.className = 'status-badge status-stopped';
+      return;
+    }
+    if (data.status === 'already_running') {
+      addLog('info', 'Swarm is already running');
+      refresh();
+      return;
+    }
+    addLog('info', 'Swarm started with workers: ' + (data.workers||[]).join(', '));
+    // Poll /swarm/status to verify the swarm actually started
+    let verified = false;
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const statusRes = await fetch('/swarm/status');
+        const statusData = await statusRes.json();
+        if (statusData.status === 'running') {
+          verified = true;
+          break;
+        }
+        if (statusData.error) {
+          addLog('error', 'Swarm failed: ' + statusData.error);
+          document.getElementById('btn-start').disabled = false;
+          badge.textContent = 'ERROR'; badge.className = 'status-badge status-stopped';
+          return;
+        }
+        addLog('info', 'Waiting for swarm to start... (attempt ' + (i+1) + '/5)');
+      } catch (pollErr) { /* retry */ }
+    }
+    if (!verified) {
+      addLog('error', 'Swarm did not start after 10 seconds. Check server logs for errors.');
+      document.getElementById('btn-start').disabled = false;
+      badge.textContent = 'ERROR'; badge.className = 'status-badge status-stopped';
+      return;
+    }
+    addLog('info', 'Swarm verified running');
+    refresh();
+  } catch (e) {
+    addLog('error', 'Start error: ' + e.message);
+    document.getElementById('btn-start').disabled = false;
+  }
+}
+
+async function stopSwarm() {
+  document.getElementById('btn-stop').disabled = true;
+  addLog('info', 'Stopping swarm...');
+  try {
+    await fetch('/swarm/stop', { method: 'POST' });
+    const badge = document.getElementById('status-badge');
+    badge.textContent = 'STOPPING...'; badge.className = 'status-badge status-starting';
+    setTimeout(refresh, 2000);
+  } catch (e) {
+    addLog('error', 'Stop error: ' + e.message);
+  }
+}
+
+// ── Chat ──
+function connectWebSocket() {
+  if (ws && ws.readyState <= 1) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws/chat');
+  ws.onopen = () => { wsConnected = true; addLog('info', 'WebSocket connected'); };
+  ws.onclose = () => { wsConnected = false; addLog('warn', 'WebSocket disconnected'); setTimeout(connectWebSocket, 3000); };
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      addChatMessage(data.sender || 'swarm', data.content || e.data, 'system');
+    } catch { addChatMessage('swarm', e.data, 'system'); }
+  };
+}
+
+function addChatMessage(sender, text, type) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + type;
+  const time = new Date().toLocaleTimeString();
+  div.innerHTML = `<div class="bubble">${esc(text)}</div><div class="meta">${esc(sender)} &middot; ${time}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function chatSendInput() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  chatSend(text);
+  input.value = '';
+}
+
+function chatSend(text) {
+  addChatMessage('you', text, 'user');
+  if (ws && ws.readyState === 1) {
+    ws.send(text);
+  } else {
+    addChatMessage('system', 'Not connected to swarm. Start the swarm first.', 'system');
+  }
+}
+
+document.getElementById('chat-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSendInput(); }
+});
+
+// ── Configuration ──
+function initConfigSliders() {
+  const ranges = ['cfg-hard-max', 'cfg-soft-max', 'cfg-personal'];
+  ranges.forEach(id => {
+    const el = document.getElementById(id);
+    const val = document.getElementById(id + '-val');
+    el.addEventListener('input', () => {
+      val.textContent = id.includes('personal') ? el.value + '%' : el.value;
+    });
+  });
+}
+
+async function loadConfig() {
+  initConfigSliders();
+  try {
+    const res = await fetch('/swarm/config');
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (cfg.default_model) document.getElementById('cfg-model').value = cfg.default_model;
+    if (cfg.max_workers != null) {
+      document.getElementById('cfg-hard-max').value = cfg.max_workers;
+      document.getElementById('cfg-hard-max-val').textContent = cfg.max_workers;
+    }
+    if (cfg.personal_time_ratio != null) {
+      const pct = Math.round(cfg.personal_time_ratio * 100);
+      document.getElementById('cfg-personal').value = pct;
+      document.getElementById('cfg-personal-val').textContent = pct + '%';
+    }
+    if (cfg.comm_check_interval != null) {
+      document.getElementById('cfg-status-interval').value = cfg.comm_check_interval;
+    }
+    if (cfg.archive_root) document.getElementById('cfg-archive').value = cfg.archive_root;
+    if (cfg.data_dir) document.getElementById('cfg-data').value = cfg.data_dir;
+    addLog('info', 'Configuration loaded from server');
+  } catch {
+    addLog('warn', 'Could not load config from server — using defaults');
+  }
+}
+
+async function saveConfig() {
+  const anthropicKey = document.getElementById('cfg-anthropic-key').value;
+  const openaiKey = document.getElementById('cfg-openai-key').value;
+  const config = {
+    default_model: document.getElementById('cfg-model').value,
+    max_workers: parseInt(document.getElementById('cfg-hard-max').value),
+    personal_time_ratio: parseInt(document.getElementById('cfg-personal').value) / 100,
+    comm_check_interval: parseInt(document.getElementById('cfg-status-interval').value),
+    data_dir: document.getElementById('cfg-data').value,
+    archive_root: document.getElementById('cfg-archive').value,
+    archive_mode: document.getElementById('cfg-archive-mode').value,
+    cache_dir: document.getElementById('cfg-cache-dir').value,
+    lmstudio_base_url: document.getElementById('cfg-lmstudio-url').value,
+    ollama_url: document.getElementById('cfg-ollama-url').value,
+  };
+  // Only include keys if the user typed something (don't send empty strings)
+  if (anthropicKey) config.anthropic_key = anthropicKey;
+  if (openaiKey) config.openai_key = openaiKey;
+  // Collect multi-key free providers
+  const freeProviders = ['gemini','groq','cerebras','mistral','together','deepseek','openrouter','cohere','huggingface'];
+  freeProviders.forEach(p => {
+    const keys = collectKeys(p);
+    if (keys.length === 1) config[p + '_api_key'] = keys[0];
+    else if (keys.length > 1) config[p + '_api_key'] = keys;
+  });
+
+  try {
+    const res = await fetch('/swarm/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    const result = await res.json();
+    if (res.ok) {
+      const applied = Object.keys(result.applied || {}).join(', ');
+      document.getElementById('config-status').textContent = 'Saved: ' + applied;
+      addLog('info', 'Configuration saved — applied: ' + applied);
+      if (result.warning) addLog('warn', result.warning);
+    } else {
+      document.getElementById('config-status').textContent = 'Error saving config';
+      addLog('error', 'Config save failed');
+    }
+  } catch (e) {
+    document.getElementById('config-status').textContent = 'API not available';
+    addLog('error', 'Config save error: ' + e.message);
+  }
+  setTimeout(() => { document.getElementById('config-status').textContent = ''; }, 5000);
+}
+
+// ── Logs ──
+function addLog(level, message) {
+  const time = new Date().toLocaleTimeString();
+  logEntries.push({ time, level, message });
+  if (logEntries.length > MAX_LOG_ENTRIES) logEntries = logEntries.slice(-MAX_LOG_ENTRIES);
+  renderLogs();
+}
+
+function renderLogs() {
+  const viewer = document.getElementById('log-viewer');
+  const filter = document.getElementById('log-level').value;
+  const filtered = filter === 'all' ? logEntries : logEntries.filter(e => e.level === filter);
+  viewer.innerHTML = filtered.map(e =>
+    `<div class="log-line"><span class="ts">${e.time}</span> <span class="level-${e.level}">[${e.level.toUpperCase()}]</span> ${esc(e.message)}</div>`
+  ).join('');
+  scrollLogs();
+}
+
+function filterLogs() { renderLogs(); }
+function clearLogs() { logEntries = []; renderLogs(); }
+function scrollLogs() {
+  if (document.getElementById('log-autoscroll').checked) {
+    const v = document.getElementById('log-viewer');
+    v.scrollTop = v.scrollHeight;
+  }
+}
+
+// ── Utilities ──
+function esc(text) {
+  const d = document.createElement('div');
+  d.textContent = text || '';
+  return d.innerHTML;
+}
+// Escape for use inside JS string literals within HTML onclick attributes.
+// Prevents breakout via quotes or backslashes in dynamic IDs/values.
+function safeAttr(text) {
+  return esc(text).replace(/'/g, '&#39;').replace(/"/g, '&#34;').replace(/\\/g, '&#92;');
+}
+
+function getProviderBadge(model) {
+  const m = (model || '').toLowerCase();
+  if (m.includes('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return '<span class="badge badge-gpt">GPT</span>';
+  if (m.startsWith('gemini/') || m.includes('gemini')) return '<span class="badge" style="background:#4285f4;color:#fff">Gemini</span>';
+  if (m.startsWith('groq/')) return '<span class="badge" style="background:#f55036;color:#fff">Groq</span>';
+  if (m.startsWith('cerebras/')) return '<span class="badge" style="background:#00b4d8;color:#fff">Cerebras</span>';
+  if (m.startsWith('ollama/') || m.startsWith('local/') || m.startsWith('lmstudio/')) return '<span class="badge" style="background:#1a1a2e;color:#0f0;border:1px solid #0f0">Local</span>';
+  if (m.startsWith('mistral/')) return '<span class="badge" style="background:#f97316;color:#fff">Mistral</span>';
+  if (m.startsWith('deepseek/')) return '<span class="badge" style="background:#0066ff;color:#fff">DeepSeek</span>';
+  if (m.startsWith('together/')) return '<span class="badge" style="background:#6366f1;color:#fff">Together</span>';
+  if (m.startsWith('openrouter/')) return '<span class="badge" style="background:#8b5cf6;color:#fff">OpenRouter</span>';
+  if (m.startsWith('cohere/')) return '<span class="badge" style="background:#39594d;color:#d5f5e3">Cohere</span>';
+  if (m.startsWith('huggingface/')) return '<span class="badge" style="background:#ffd21e;color:#000">HF</span>';
+  if (m.includes('claude')) return '<span class="badge badge-claude">Claude</span>';
+  return '<span class="badge" style="background:#555;color:#fff">LLM</span>';
+}
+
+// ── Messages ──
+function toggleComposeMsg() {
+  const form = document.getElementById('msg-compose-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function sendMessage(replyTo) {
+  const sender = document.getElementById('msg-sender').value.trim();
+  const recipient = document.getElementById('msg-recipient').value.trim();
+  const subject = document.getElementById('msg-subject').value.trim();
+  const content = document.getElementById('msg-content').value.trim();
+
+  if (!sender || !content) { alert('Sender and content are required'); return; }
+
+  try {
+    let url = '/messages', body = {sender, recipient, content, subject};
+    if (replyTo) {
+      url = `/messages/${encodeURIComponent(replyTo)}/reply`;
+      body = {sender, content, subject};
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    document.getElementById('msg-content').value = '';
+    document.getElementById('msg-subject').value = '';
+    document.getElementById('msg-recipient').value = '';
+    document.getElementById('msg-compose-form').style.display = 'none';
+    loadMessages();
+  } catch (e) {
+    alert('Error sending message: ' + e.message);
+  }
+}
+
+function replyToMsg(msgId, sender, subject) {
+  const form = document.getElementById('msg-compose-form');
+  form.style.display = 'block';
+  document.getElementById('msg-recipient').value = sender;
+  document.getElementById('msg-subject').value = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
+  document.getElementById('msg-content').focus();
+  // Store reply-to context
+  form.dataset.replyTo = msgId;
+  // Override send button
+  const sendBtn = form.querySelector('.btn-start');
+  sendBtn.onclick = () => sendMessage(msgId);
+}
+
+async function loadMessages() {
+  const sender = document.getElementById('msg-filter-sender').value.trim();
+  const recipient = document.getElementById('msg-filter-recipient').value.trim();
+  const params = new URLSearchParams({ limit: '100' });
+  if (sender) params.set('sender', sender);
+  if (recipient) params.set('recipient', recipient);
+  try {
+    const [msgsRes, statsRes] = await Promise.all([
+      fetch('/messages?' + params),
+      fetch('/messages/stats').catch(() => null),
+    ]);
+    const msgs = await msgsRes.json();
+    const stats = statsRes ? await statsRes.json() : null;
+    if (stats) {
+      document.getElementById('msg-stats').textContent = `${stats.total_messages || 0} total, ${stats.active_instances || 0} instances`;
+    }
+    const container = document.getElementById('messages-list');
+    if (!msgs.length) {
+      container.innerHTML = '<div class="empty-state">No messages found</div>';
+      return;
+    }
+    container.innerHTML = msgs.slice().reverse().map(m => {
+      const statusCls = m.status === 'read' ? 'msg-status-read' : m.status === 'responded' ? 'msg-status-responded' : 'msg-status-sent';
+      const time = m.timestamp ? new Date(m.timestamp).toLocaleString() : '';
+      const msgId = m.id || '';
+      return `<div class="msg-card" onclick="this.classList.toggle('expanded')">
+        <div class="msg-header">
+          <div>
+            <div class="msg-subject">${esc(m.subject || '(no subject)')}</div>
+            <div class="msg-meta"><span>${esc(m.sender||'?')}</span> → <span>${esc(m.recipient||'all')}</span> · ${time}</div>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center">
+            <span class="msg-status ${statusCls}">${esc(m.status||'sent')}</span>
+            <button class="btn btn-ghost" style="font-size:11px;padding:2px 8px" onclick="event.stopPropagation();replyToMsg('${safeAttr(msgId)}','${safeAttr(m.sender||'')}','${safeAttr(m.subject||'')}')">Reply</button>
+          </div>
+        </div>
+        <div class="msg-body">${esc(m.content||'')}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('messages-list').innerHTML = `<div class="empty-state">Error loading messages: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Approvals ──
+async function loadApprovals() {
+  const status = document.getElementById('approvals-filter').value;
+  const params = status ? `?status=${status}` : '';
+  try {
+    const [listRes, statsRes] = await Promise.all([
+      fetch('/approvals' + params),
+      fetch('/approvals/stats').catch(() => null),
+    ]);
+    const items = await listRes.json();
+    const stats = statsRes ? await statsRes.json() : null;
+    if (stats) {
+      document.getElementById('approvals-stats').textContent = `${stats.pending || 0} pending, ${stats.total || 0} total`;
+      const countEl = document.getElementById('approvals-count');
+      countEl.textContent = stats.pending > 0 ? stats.pending : '';
+    }
+    const container = document.getElementById('approvals-list');
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state">No approval requests</div>';
+      return;
+    }
+    container.innerHTML = items.map(a => {
+      const statusCls = a.status || 'pending';
+      const time = a.submitted_at ? new Date(a.submitted_at).toLocaleString() : '';
+      const actions = statusCls === 'pending' ? `
+        <div class="approval-actions">
+          <button class="btn btn-start" onclick="event.stopPropagation();approvalAction('${safeAttr(a.id)}','approve')">Approve</button>
+          <button class="btn btn-stop" onclick="event.stopPropagation();approvalAction('${safeAttr(a.id)}','reject')">Reject</button>
+        </div>` : `<div style="font-size:12px;color:var(--text-muted)">Status: ${esc(a.status)} ${a.reviewer ? '(by ' + esc(a.reviewer) + ')' : ''}</div>`;
+      return `<div class="approval-card ${statusCls}">
+        <div class="approval-header">
+          <span class="approval-type">${esc(a.action_type||'action')}</span>
+          <span style="font-size:11px;color:var(--text-muted)">${time}</span>
+        </div>
+        <div class="approval-summary">${esc(a.summary||'')}</div>
+        <div class="approval-details">Requester: ${esc(a.requester||'?')}${a.reason ? ' · Reason: ' + esc(a.reason) : ''}${a.task_address ? ' · Task: ' + esc(a.task_address) : ''}</div>
+        ${a.details ? `<div class="approval-details" style="background:var(--bg-input);padding:8px;border-radius:4px;font-family:monospace;font-size:11px;white-space:pre-wrap">${esc(typeof a.details === 'string' ? a.details : JSON.stringify(a.details, null, 2))}</div>` : ''}
+        ${actions}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('approvals-list').innerHTML = `<div class="empty-state">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function approvalAction(id, action) {
+  try {
+    const res = await fetch(`/approvals/${id}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewer: 'matt', reason: '' }),
+    });
+    if (res.ok) {
+      addLog('info', `Approval ${id} ${action}d`);
+      loadApprovals();
+    } else {
+      addLog('error', `Failed to ${action} approval ${id}`);
+    }
+  } catch (e) {
+    addLog('error', `Approval action error: ${e.message}`);
+  }
+}
+
+// ── Governance ──
+async function loadGovernance() {
+  const status = document.getElementById('gov-filter-status').value;
+  const params = status ? `?status=${status}` : '';
+  try {
+    const [listRes, statsRes] = await Promise.all([
+      fetch('/governance/proposals' + params),
+      fetch('/governance/stats').catch(() => null),
+    ]);
+    const proposals = await listRes.json();
+    const stats = statsRes ? await statsRes.json() : null;
+    if (stats) {
+      document.getElementById('gov-stats').textContent = `${stats.total_proposals || 0} proposals, ${stats.active || 0} active`;
+    }
+    const container = document.getElementById('governance-list');
+    if (!proposals.length) {
+      container.innerHTML = '<div class="empty-state">No governance proposals</div>';
+      return;
+    }
+    container.innerHTML = proposals.map(p => {
+      const statusCls = `gov-status-${(p.status || 'draft').replace(/_/g, '-')}`;
+      const votes = p.votes || [];
+      const forCount = votes.filter(v => v.approve === true).length;
+      const againstCount = votes.filter(v => v.approve === false).length;
+      const abstainCount = votes.filter(v => v.choice === 'abstain').length;
+      const time = p.created_at ? new Date(p.created_at).toLocaleString() : '';
+      const isVoting = p.status === 'voting';
+      const voteButtons = isVoting ? `
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-start" onclick="govVote('${safeAttr(p.id)}',true)">Vote For</button>
+          <button class="btn btn-stop" onclick="govVote('${safeAttr(p.id)}',false)">Vote Against</button>
+          <button class="btn btn-ghost" onclick="govVote('${safeAttr(p.id)}',null)">Abstain</button>
+        </div>` : '';
+      return `<div class="gov-card">
+        <div class="gov-header">
+          <div class="gov-title">${esc(p.title||'')}</div>
+          <span class="gov-status ${statusCls}">${esc(p.status||'draft')}</span>
+        </div>
+        <div class="gov-meta">by ${esc(p.author||'?')} · ${esc(p.proposal_type||'?')} · ${time}</div>
+        <div class="gov-desc">${esc((p.description||'').substring(0, 300))}${(p.description||'').length > 300 ? '...' : ''}</div>
+        ${votes.length > 0 ? `<div class="gov-votes"><span class="for">For: ${forCount}</span><span class="against">Against: ${againstCount}</span><span class="abstain">Abstain: ${abstainCount}</span></div>` : ''}
+        ${p.outcome ? `<div style="font-size:12px;padding:6px 10px;border-radius:4px;background:${p.outcome === 'approved' ? 'var(--success-dim)' : 'var(--danger-dim)'};color:${p.outcome === 'approved' ? 'var(--success)' : 'var(--danger)'};display:inline-block">Outcome: ${esc(p.outcome)}</div>` : ''}
+        ${voteButtons}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('governance-list').innerHTML = `<div class="empty-state">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function govVote(proposalId, approve) {
+  const voter = prompt('Your account address (e.g. 1.1, 2.1):');
+  if (!voter) return;
+  const body = { voter, approve };
+  if (approve === null) { body.approve = false; body.choice = 'abstain'; }
+  try {
+    const res = await fetch(`/governance/proposals/${proposalId}/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      addLog('info', `Vote cast on ${proposalId}`);
+      loadGovernance();
+    } else {
+      const err = await res.json();
+      addLog('error', `Vote failed: ${err.detail || 'unknown error'}`);
+    }
+  } catch (e) {
+    addLog('error', `Vote error: ${e.message}`);
+  }
+}
+
+// ── Archive Browser ──
+let archiveHistory = [];
+
+async function browseArchive(prefix) {
+  if (prefix !== undefined) {
+    document.getElementById('archive-prefix').value = prefix;
+  }
+  const pfx = document.getElementById('archive-prefix').value.trim();
+  const params = pfx ? `?prefix=${encodeURIComponent(pfx)}` : '';
+
+  // Build breadcrumb
+  const bc = document.getElementById('archive-breadcrumb');
+  if (pfx) {
+    const parts = pfx.split('.');
+    let crumbs = '<span class="breadcrumb-item" onclick="browseArchive(\'\')">root</span>';
+    let accumulated = '';
+    parts.forEach((part, i) => {
+      accumulated += (i === 0 ? '' : '.') + part;
+      const addr = accumulated;
+      crumbs += `<span class="breadcrumb-sep">/</span><span class="breadcrumb-item" onclick="browseArchive('${safeAttr(addr)}')">${esc(part)}</span>`;
+    });
+    bc.innerHTML = crumbs;
+  } else {
+    bc.innerHTML = '<span class="breadcrumb-item" style="color:var(--text-muted)">root — browse by prefix</span>';
+  }
+
+  try {
+    const res = await fetch('/query' + params);
+    const nodes = await res.json();
+    const container = document.getElementById('archive-content');
+    if (!nodes.length) {
+      container.innerHTML = '<div class="empty-state">No nodes found at this prefix</div>';
+      return;
+    }
+    // Group by immediate child prefix for navigation
+    const childPrefixes = {};
+    nodes.forEach(n => {
+      const addr = n.address || '';
+      if (pfx && addr === pfx) return; // skip exact match
+      const remainder = pfx ? addr.substring(pfx.length + 1) : addr;
+      const nextPart = remainder.split('.')[0];
+      const childAddr = pfx ? pfx + '.' + nextPart : nextPart;
+      if (!childPrefixes[childAddr]) {
+        childPrefixes[childAddr] = { count: 0, sample: n };
+      }
+      childPrefixes[childAddr].count++;
+    });
+
+    // If we have an exact match, show it first
+    const exact = nodes.find(n => n.address === pfx);
+    let html = '';
+    if (exact) {
+      html += `<div class="archive-detail">
+        <h3>${esc(exact.address)}</h3>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Type: ${esc(exact.type_address||'?')} · Creator: ${esc(exact.creator||'?')} · v${exact.version||1}</div>
+        <pre>${esc(JSON.stringify(exact.data || {}, null, 2))}</pre>
+      </div>`;
+    }
+
+    // Show children as navigable list
+    const sorted = Object.entries(childPrefixes).sort((a, b) => a[0].localeCompare(b[0]));
+    if (sorted.length > 0) {
+      html += sorted.map(([addr, info]) => {
+        const label = info.sample.data?.title || info.sample.data?.name || '';
+        const typeName = info.sample.type_address || '';
+        const isLeaf = info.count === 1 && addr === (info.sample.address || '');
+        return `<div class="archive-node" onclick="browseArchive('${safeAttr(addr)}')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="addr">${esc(addr)}</span>
+            ${label ? `<span class="node-label">${esc(label)}</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="node-type">${esc(typeName)}</span>
+            ${info.count > 1 ? `<span style="font-size:11px;color:var(--text-muted)">${info.count} nodes</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    } else if (!exact) {
+      html = '<div class="empty-state">No nodes at this address</div>';
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    document.getElementById('archive-content').innerHTML = `<div class="empty-state">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+document.getElementById('archive-prefix').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') browseArchive();
+});
+
+// ── Task Management ──
+function toggleTaskForm() {
+  const form = document.getElementById('task-create-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function createTask() {
+  const title = document.getElementById('task-title').value.trim();
+  const desc = document.getElementById('task-desc').value.trim();
+  const priority = document.getElementById('task-priority').value;
+  const tags = document.getElementById('task-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const creator = document.getElementById('task-creator').value.trim();
+
+  if (!title) { alert('Task title is required'); return; }
+
+  try {
+    const res = await fetch('/tasks', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title, description: desc, priority, tags, created_by: creator || null}),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    document.getElementById('task-title').value = '';
+    document.getElementById('task-desc').value = '';
+    document.getElementById('task-tags').value = '';
+    toggleTaskForm();
+    loadTaskList();
+  } catch (e) {
+    alert('Error creating task: ' + e.message);
+  }
+}
+
+async function loadTaskList() {
+  const priority = document.getElementById('tasks-filter-priority').value;
+  const tag = document.getElementById('tasks-filter-tag').value.trim();
+  let params = [];
+  if (priority) params.push('priority=' + encodeURIComponent(priority));
+  if (tag) params.push('tag=' + encodeURIComponent(tag));
+  const query = params.length ? '?' + params.join('&') : '';
+
+  try {
+    const res = await fetch('/tasks' + query);
+    const tasks = await res.json();
+    const container = document.getElementById('tasks-list');
+
+    if (!tasks.length) {
+      container.innerHTML = '<div class="empty-state">No tasks found</div>';
+      return;
+    }
+
+    container.innerHTML = tasks.map(t => {
+      const status = t.status || 'pending';
+      const pri = (t.priority || 'normal').toLowerCase();
+      const addr = t.address || '';
+      const assignee = t.assignee || '';
+      const tags = (t.tags || []).map(g => `<span style="font-size:10px;color:var(--teal);background:rgba(38,166,154,0.1);padding:1px 5px;border-radius:4px">${esc(g)}</span>`).join(' ');
+
+      let actions = '';
+      if (status === 'pending') {
+        actions = `
+          <button class="btn btn-ghost" onclick="claimTask('${safeAttr(addr)}')">Claim</button>
+        `;
+      } else if (status === 'claimed') {
+        actions = `
+          <button class="btn btn-start" onclick="startTask('${safeAttr(addr)}')">Start</button>
+        `;
+      } else if (status === 'in_progress') {
+        actions = `
+          <button class="btn btn-start" onclick="completeTask('${safeAttr(addr)}')">Complete</button>
+          <button class="btn btn-stop" onclick="failTask('${safeAttr(addr)}')">Fail</button>
+        `;
+      }
+
+      return `<div class="task-card priority-${esc(pri)}">
+        <div class="task-card-header">
+          <div class="task-card-title">${esc(t.title || 'Untitled')}</div>
+          <span class="task-card-addr">${esc(addr)}</span>
+        </div>
+        <div class="task-card-meta">
+          <span class="task-status-badge task-status-${esc(status)}">${esc(status)}</span>
+          <span class="priority-badge ${esc(pri)}">${esc(pri)}</span>
+          ${assignee ? `<span>Assigned: ${esc(assignee)}</span>` : ''}
+          ${tags}
+        </div>
+        ${t.description ? `<div class="task-card-desc">${esc(t.description)}</div>` : ''}
+        ${actions ? `<div class="task-card-actions">${actions}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('tasks-list').innerHTML = `<div class="empty-state">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function claimTask(addr) {
+  const assignee = prompt('Assign to (address, e.g. 2.1.sigil):');
+  if (!assignee) return;
+  try {
+    const res = await fetch(`/tasks/${encodeURIComponent(addr)}/claim`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({assignee}),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    loadTaskList();
+  } catch (e) { alert('Error claiming task: ' + e.message); }
+}
+
+async function startTask(addr) {
+  try {
+    const res = await fetch(`/tasks/${encodeURIComponent(addr)}/start`, {method: 'POST'});
+    if (!res.ok) throw new Error(await res.text());
+    loadTaskList();
+  } catch (e) { alert('Error starting task: ' + e.message); }
+}
+
+async function completeTask(addr) {
+  const result = prompt('Result summary (optional):') || '';
+  try {
+    const res = await fetch(`/tasks/${encodeURIComponent(addr)}/complete`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({result}),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    loadTaskList();
+  } catch (e) { alert('Error completing task: ' + e.message); }
+}
+
+async function failTask(addr) {
+  const reason = prompt('Failure reason:');
+  if (!reason) return;
+  try {
+    const res = await fetch(`/tasks/${encodeURIComponent(addr)}/fail`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({reason}),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    loadTaskList();
+  } catch (e) { alert('Error failing task: ' + e.message); }
+}
+
+document.getElementById('tasks-filter-tag').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loadTaskList();
+});
+
+// ── Reputation ──
+async function lookupReputation() {
+  const addr = document.getElementById('rep-lookup-addr').value.trim();
+  if (!addr) { alert('Enter an address to look up'); return; }
+
+  try {
+    const [profileRes, statsRes] = await Promise.all([
+      fetch(`/reputation/${encodeURIComponent(addr)}`),
+      fetch('/reputation/stats').catch(() => null),
+    ]);
+    const profile = await profileRes.json();
+    if (statsRes) {
+      const stats = await statsRes.json();
+      document.getElementById('rep-stats').textContent = `${stats.total_entities || 0} entities, ${stats.total_contributions || 0} contributions`;
+    }
+
+    const container = document.getElementById('rep-profile');
+    const domains = profile.domains || {};
+    const domainEntries = Object.entries(domains);
+
+    if (!domainEntries.length) {
+      container.innerHTML = `<div class="rep-profile-card"><h3>${esc(addr)}</h3><div class="empty-state" style="padding:8px 0">No reputation data</div></div>`;
+      return;
+    }
+
+    const maxScore = Math.max(...domainEntries.map(([,v]) => typeof v === 'number' ? v : (v.score || 0)), 1);
+    container.innerHTML = `<div class="rep-profile-card">
+      <h3>${esc(addr)}</h3>
+      ${domainEntries.map(([domain, val]) => {
+        const score = typeof val === 'number' ? val : (val.score || 0);
+        const pct = Math.min(100, Math.max(0, (score / maxScore) * 100));
+        const color = score >= 80 ? 'var(--success)' : score >= 50 ? 'var(--accent)' : score >= 20 ? 'var(--warning)' : 'var(--danger)';
+        return `<div class="rep-domain-row">
+          <span class="rep-domain-name">${esc(domain)}</span>
+          <div class="rep-bar"><div class="rep-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <span class="rep-domain-score" style="color:${color}">${score.toFixed(1)}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  } catch (e) {
+    document.getElementById('rep-profile').innerHTML = `<div class="empty-state">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function loadRepLeaders() {
+  const domain = document.getElementById('rep-domain').value;
+  try {
+    const res = await fetch(`/reputation/leaders/${encodeURIComponent(domain)}?top=10`);
+    const data = await res.json();
+    const container = document.getElementById('rep-leaders');
+
+    if (!data.leaders || !data.leaders.length) {
+      container.innerHTML = `<div class="empty-state">No leaders in "${esc(domain)}"</div>`;
+      return;
+    }
+
+    container.innerHTML = `<div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">Top ${data.leaders.length} in ${esc(domain)}</div>` +
+      data.leaders.map((l, i) => {
+        const color = i === 0 ? 'var(--warning)' : i < 3 ? 'var(--accent)' : 'var(--text-secondary)';
+        return `<div class="rep-leader-card">
+          <span class="rep-rank" style="color:${color}">#${i + 1}</span>
+          <span class="rep-leader-addr">${esc(l.address)}</span>
+          <span class="rep-leader-score" style="color:${color}">${l.score.toFixed(1)}</span>
+        </div>`;
+      }).join('');
+  } catch (e) {
+    document.getElementById('rep-leaders').innerHTML = `<div class="empty-state">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+document.getElementById('rep-lookup-addr').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') lookupReputation();
+});
+
+// ── Tools ──
+let toolsCache = null;
+
+async function loadTools() {
+  const cat = document.getElementById('tools-category-filter').value;
+  const params = cat ? `?category=${encodeURIComponent(cat)}` : '';
+  const container = document.getElementById('tools-content');
+
+  try {
+    const res = await fetch('/tools' + params);
+    const data = await res.json();
+
+    // Populate category filter on first load
+    if (!toolsCache && data.categories) {
+      const sel = document.getElementById('tools-category-filter');
+      data.categories.forEach(c => {
+        if (!sel.querySelector(`option[value="${c}"]`)) {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c.charAt(0).toUpperCase() + c.slice(1);
+          sel.appendChild(opt);
+        }
+      });
+      toolsCache = true;
+    }
+
+    if (!data.tools || data.tools.length === 0) {
+      container.innerHTML = '<div class="empty-state">No agent tools registered</div>';
+      return;
+    }
+
+    container.innerHTML = data.tools.map(t => `
+      <div class="tool-card ${t.available ? 'available' : 'unavailable'}">
+        <div class="tool-header">
+          <span class="tool-name">${esc(t.name)}</span>
+          <span class="tool-category">${esc(t.category)}</span>
+        </div>
+        <div class="tool-desc">${esc(t.description)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="tool-status">
+            <span class="dot ${t.available ? 'green' : 'orange'}"></span>
+            ${t.available ? 'Available' : esc(t.reason)}
+          </div>
+          <span class="tool-tier">Tier: ${esc(t.required_tier)}</span>
+        </div>
+        <div class="tool-setup">
+          <details>
+            <summary>Setup Guide</summary>
+            <pre id="setup-${esc(t.name)}">Loading...</pre>
+          </details>
+        </div>
+        <div class="tool-grant">
+          <details>
+            <summary>Grant Card</summary>
+            <pre id="grant-${esc(t.name)}">Loading...</pre>
+          </details>
+        </div>
+      </div>
+    `).join('');
+
+    // Lazy-load setup/grant on details open
+    container.querySelectorAll('details').forEach(d => {
+      d.addEventListener('toggle', async function() {
+        if (!this.open) return;
+        const pre = this.querySelector('pre');
+        if (pre.textContent !== 'Loading...') return;
+        const toolName = pre.id.split('-').slice(1).join('-');
+        try {
+          const r = await fetch(`/tools/${encodeURIComponent(toolName)}/setup`);
+          const info = await r.json();
+          if (pre.id.startsWith('setup-')) {
+            pre.textContent = info.setup_guide || 'No setup required.';
+          } else {
+            pre.textContent = info.grant_card?.grant_text || 'No grant card available.';
+          }
+        } catch (e) {
+          pre.textContent = 'Error loading: ' + e.message;
+        }
+      });
+    });
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state">Error loading tools: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Discord ──
+async function loadDiscordStatus() {
+  try {
+    const res = await fetch('/discord/status');
+    const data = await res.json();
+    const bar = document.getElementById('discord-status-bar');
+
+    if (!data.configured) {
+      bar.innerHTML = `<span class="dot orange"></span> <strong>Discord not configured.</strong> Add webhook URLs to <code>secrets/discord_webhooks.json</code> — see the <a href="#" onclick="alert('Check 3.1.5.7 - Discord Setup Guide.md in the archive')">setup guide</a>.`;
+      return;
+    }
+
+    bar.innerHTML = `
+      <span class="dot green"></span> <strong>Discord Active</strong> —
+      ${data.personalities.length} personalit${data.personalities.length === 1 ? 'y' : 'ies'}: ${data.personalities.map(p => '<code>' + esc(p) + '</code>').join(', ')}
+      ${data.channel_webhooks.length ? ' | Channels: ' + data.channel_webhooks.map(c => '<code>' + esc(c) + '</code>').join(', ') : ''}
+      | ${data.recent_messages} messages sent this session
+    `;
+
+    // Populate personality dropdowns
+    const selectors = ['discord-personality', 'discord-embed-personality'];
+    selectors.forEach(selId => {
+      const sel = document.getElementById(selId);
+      // Clear existing options beyond first
+      while (sel.options.length > 1) sel.remove(1);
+      data.personalities.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+        sel.appendChild(opt);
+      });
+    });
+
+    // Load recent log
+    loadDiscordLog();
+  } catch (e) {
+    document.getElementById('discord-status-bar').innerHTML = `<span class="dot red"></span> Error: ${esc(e.message)}`;
+  }
+}
+
+async function sendDiscordMessage() {
+  const personality = document.getElementById('discord-personality').value;
+  const channel = document.getElementById('discord-channel').value;
+  const message = document.getElementById('discord-message').value.trim();
+
+  if (!message) return alert('Please enter a message.');
+  if (!personality) return alert('Please select a personality.');
+
+  try {
+    const res = await fetch('/discord/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({personality, content: message, channel}),
+    });
+    const data = await res.json();
+    if (data.sent) {
+      document.getElementById('discord-message').value = '';
+      loadDiscordLog();
+    } else {
+      alert('Failed to send: ' + (data.error || 'Unknown error'));
+    }
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function sendDiscordEmbed() {
+  const personality = document.getElementById('discord-embed-personality').value;
+  const title = document.getElementById('discord-embed-title').value.trim();
+  const description = document.getElementById('discord-embed-desc').value.trim();
+  const channel = document.getElementById('discord-embed-channel').value;
+
+  if (!title || !description) return alert('Title and description are required.');
+
+  try {
+    const res = await fetch('/discord/embed', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({personality, title, description, channel}),
+    });
+    const data = await res.json();
+    if (data.sent) {
+      document.getElementById('discord-embed-title').value = '';
+      document.getElementById('discord-embed-desc').value = '';
+      loadDiscordLog();
+    } else {
+      alert('Failed to send embed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function loadDiscordLog() {
+  try {
+    const res = await fetch('/discord/log?limit=20');
+    const data = await res.json();
+    const container = document.getElementById('discord-log');
+
+    if (!data.messages || data.messages.length === 0) {
+      container.innerHTML = '<div class="empty-state">No messages sent yet</div>';
+      return;
+    }
+
+    container.innerHTML = data.messages.reverse().map(m => `
+      <div style="border-bottom:1px solid var(--border);padding:8px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="color:var(--text-accent)">${esc(m.sender || 'system')}</strong>
+          <span style="color:var(--text-secondary);font-size:11px">${m.channel || 'discord'} · ${new Date(m.timestamp).toLocaleTimeString()}</span>
+        </div>
+        <div style="color:var(--text-secondary);margin-top:4px;font-size:13px">${esc(m.content).substring(0, 200)}${m.content.length > 200 ? '...' : ''}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('discord-log').innerHTML = `<div class="empty-state">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Worker Management ──
+async function showAddWorker() {
+  const dialog = document.getElementById('add-worker-dialog');
+  dialog.style.display = 'block';
+  // Load available providers
+  try {
+    const res = await fetch('/swarm/providers');
+    if (!res.ok) throw new Error('Provider endpoint not available');
+    const data = await res.json();
+    const list = document.getElementById('provider-list');
+    const select = document.getElementById('new-worker-model');
+    select.innerHTML = '';
+    list.innerHTML = (data.providers || []).map(p => {
+      const dot = p.configured ? 'green' : 'orange';
+      const keyInfo = p.key_count > 0 ? `${p.key_count} key${p.key_count > 1 ? 's' : ''}` : (p.name === 'ollama' || p.name === 'lmstudio' ? 'local' : 'no key');
+      return `<div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+        <div><span class="dot ${dot}"></span> <strong>${esc(p.name)}</strong> <span style="font-size:11px;color:var(--text-muted)">(${keyInfo})</span></div>
+        ${p.configured ? `<button class="btn btn-ghost" style="font-size:11px;padding:2px 10px" onclick="quickAddWorker('${safeAttr(p.name)}','${safeAttr(p.models[0] || '')}')">+ Add</button>` : ''}
+      </div>`;
+    }).join('');
+    // Populate model dropdown from all configured providers
+    (data.providers || []).filter(p => p.configured).forEach(p => {
+      const group = document.createElement('optgroup');
+      group.label = p.name.charAt(0).toUpperCase() + p.name.slice(1);
+      (p.models || []).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    });
+  } catch (e) {
+    document.getElementById('provider-list').innerHTML = `<div style="color:var(--text-muted);font-size:12px">Could not load providers: ${esc(e.message)}<br>Configure API keys in the Configuration tab and restart the swarm.</div>`;
+    // Populate basic model list as fallback
+    const select = document.getElementById('new-worker-model');
+    select.innerHTML = `
+      <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+      <option value="gpt-4o-mini">GPT-4o Mini</option>
+      <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
+      <option value="groq/llama-3.3-70b-versatile">Groq Llama 3.3 70B</option>
+      <option value="cerebras/llama-3.3-70b">Cerebras Llama 3.3 70B</option>
+      <option value="ollama/llama3">Ollama Llama 3</option>
+    `;
+  }
+}
+
+function hideAddWorker() {
+  document.getElementById('add-worker-dialog').style.display = 'none';
+}
+
+async function addWorker() {
+  const name = document.getElementById('new-worker-name').value.trim();
+  const model = document.getElementById('new-worker-model').value;
+  if (!model) { alert('Select a model'); return; }
+  try {
+    const res = await fetch('/swarm/workers', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: name || undefined, model}),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      addLog('info', 'Worker added: ' + (data.name || name || model));
+      hideAddWorker();
+      document.getElementById('new-worker-name').value = '';
+      refresh();
+    } else {
+      addLog('error', 'Failed to add worker: ' + (data.detail || data.message || 'Unknown error'));
+    }
+  } catch (e) {
+    addLog('error', 'Add worker error: ' + e.message);
+  }
+}
+
+async function quickAddWorker(provider, defaultModel) {
+  const model = defaultModel || provider + '/auto';
+  try {
+    const res = await fetch('/swarm/workers', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model}),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      addLog('info', 'Worker added: ' + (data.name || model));
+      showAddWorker(); // Refresh the provider list
+      refresh();
+    } else {
+      addLog('error', 'Failed: ' + (data.detail || data.message || ''));
+    }
+  } catch (e) {
+    addLog('error', 'Quick add error: ' + e.message);
+  }
+}
+
+async function removeWorker(name) {
+  if (!confirm('Remove worker ' + name + '?')) return;
+  try {
+    const res = await fetch('/swarm/workers/' + encodeURIComponent(name), {method: 'DELETE'});
+    if (res.ok) {
+      addLog('info', 'Worker removed: ' + name);
+      refresh();
+    } else {
+      const data = await res.json();
+      addLog('error', 'Remove failed: ' + (data.detail || ''));
+    }
+  } catch (e) {
+    addLog('error', 'Remove error: ' + e.message);
+  }
+}
+
+// ── Multi-key Management ──
+function addKeySlot(provider) {
+  const group = document.getElementById('cfg-' + provider + '-keys');
+  if (!group) return;
+  const row = document.createElement('div');
+  row.className = 'config-row';
+  row.style.marginLeft = '120px';
+  row.innerHTML = `<input type="password" class="key-input" data-provider="${esc(provider)}" placeholder="Additional key..." style="width:200px"><button class="btn btn-ghost" onclick="this.parentElement.remove()" style="padding:4px 8px;font-size:11px;color:var(--danger)" title="Remove this key">×</button>`;
+  group.appendChild(row);
+}
+
+function collectKeys(provider) {
+  const inputs = document.querySelectorAll(`.key-input[data-provider="${provider}"]`);
+  const keys = [];
+  inputs.forEach(el => {
+    const v = el.value.trim();
+    if (v && !v.startsWith('***')) keys.push(v);
+  });
+  return keys;
+}
+
+// ── Archive Mode ──
+function toggleArchiveFields() {
+  const mode = document.getElementById('cfg-archive-mode').value;
+  document.getElementById('archive-local-row').style.display = mode === 'local' ? '' : 'none';
+  document.getElementById('archive-cache-row').style.display = mode === 'github' ? '' : 'none';
+}
+
+// ── Init ──
+loadConfig();
+refresh();
+refreshTimer = setInterval(refresh, 5000);
+</script>
+</body>
+</html>
