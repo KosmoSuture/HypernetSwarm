@@ -96,6 +96,16 @@ def _build_swarm_inner(
         archive_root = config_archive
         log.info(f"Archive root from config: {archive_root}")
 
+    # Load companion profile (personalizes the swarm for whoever installed it)
+    from .companion import CompanionProfile
+    companion_path = Path("secrets") / "companion.json"
+    companion = CompanionProfile.load(companion_path)
+    if companion:
+        log.info("Companion profile loaded: %s (owner: %s)", companion.companion_name, companion.preferred_name)
+    else:
+        companion = CompanionProfile.default()
+        log.info("No companion profile found — using defaults")
+
     # Core services
     store = Store(data_dir)
     task_queue = TaskQueue(store)
@@ -209,6 +219,8 @@ def _build_swarm_inner(
     else:
         instances = identity_mgr.list_instances()
 
+    companion_context = companion.system_prompt_addition() if companion else ""
+
     for profile in instances:
         worker = Worker(
             identity=profile,
@@ -217,6 +229,7 @@ def _build_swarm_inner(
             mock=mock or not has_any_key,
             tool_executor=tool_executor,
         )
+        worker._companion_context = companion_context
         workers[profile.name] = worker
 
     # Model routing — contributed by Keystone (2.2)
@@ -239,6 +252,9 @@ def _build_swarm_inner(
         spawn_cooldown_seconds=config.get("spawn_cooldown_seconds", 120),
         budget_config=config.get("budget"),
     )
+
+    # Attach companion profile — personalizes standing priorities and system prompts
+    swarm._companion = companion
 
     # Attach spawning dependencies so ephemeral workers can be created
     swarm._api_keys = api_keys

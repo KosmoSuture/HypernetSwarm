@@ -285,6 +285,191 @@ def run_setup(root="."):
 
     print()
 
+    # ── Section 5: AI Companion ──
+    print("─" * 62)
+    print("  YOUR AI COMPANION")
+    print("─" * 62)
+    print()
+    print("  The swarm includes a personal AI companion that learns what")
+    print("  matters to you and directs the swarm's work accordingly.")
+    print()
+
+    from .companion import CompanionProfile
+
+    companion_path = root / "secrets" / "companion.json"
+    companion = CompanionProfile.load(companion_path)
+
+    if companion:
+        print(f"  Existing companion: {companion.companion_name}")
+        print(f"  Owner: {companion.preferred_name}")
+        if companion.goals:
+            print(f"  Goals: {', '.join(companion.goals[:3])}")
+        print()
+        update_companion = prompt_input("  Update companion profile? (yes/no)", "no")
+        if update_companion.lower() not in ("yes", "y"):
+            companion_changed = False
+        else:
+            companion_changed = True
+    else:
+        companion = CompanionProfile()
+        companion_changed = True
+        print("  Let's create your AI companion.")
+        print()
+
+    if companion_changed:
+        # Name
+        print("  First, tell me about you.")
+        print()
+        companion.owner_name = prompt_input("  What's your name?", companion.owner_name)
+        companion.preferred_name = prompt_input(
+            "  What should the AI call you?", companion.preferred_name or companion.owner_name
+        )
+        print()
+
+        # About
+        print("  Tell me a bit about yourself. What do you do? What are you")
+        print("  working on? (One or two sentences is fine, or leave blank)")
+        print()
+        companion.about = prompt_input("  About you", companion.about)
+        print()
+
+        # Goals
+        print("  What are your main goals right now? These become the swarm's")
+        print("  standing priorities — what it works on when you haven't given")
+        print("  it a specific task.")
+        print()
+        print("  Enter each goal on its own line. Press Enter on a blank line when done.")
+        if companion.goals:
+            print(f"  Current goals: {'; '.join(companion.goals)}")
+        print()
+
+        new_goals = []
+        goal_num = 1
+        while True:
+            goal = input(f"  Goal {goal_num}: ").strip()
+            if not goal:
+                break
+            new_goals.append(goal)
+            goal_num += 1
+        if new_goals:
+            companion.goals = new_goals
+        elif not companion.goals:
+            companion.goals = ["Explore what the AI swarm can do"]
+        print()
+
+        # Interests
+        print("  What are your interests? (comma-separated)")
+        print("  Examples: programming, writing, research, business, music,")
+        print("  science, art, gaming, finance, health, education")
+        print()
+        if companion.interests:
+            print(f"  Current: {', '.join(companion.interests)}")
+        interests_input = input("  Interests: ").strip()
+        if interests_input:
+            companion.interests = [i.strip() for i in interests_input.split(",") if i.strip()]
+        print()
+
+        # Use cases
+        print("  What do you want the swarm to help you with?")
+        print()
+        print("    1. Software development (writing code, debugging, testing)")
+        print("    2. Research & analysis (gathering info, summarizing, comparing)")
+        print("    3. Writing & content (drafts, editing, brainstorming)")
+        print("    4. Project management (task tracking, planning, organizing)")
+        print("    5. Data processing (parsing, transforming, analyzing data)")
+        print("    6. Learning & education (explaining concepts, tutorials)")
+        print("    7. Business operations (reports, communication, strategy)")
+        print("    8. Creative work (stories, ideas, design concepts)")
+        print("    9. Personal assistant (scheduling, reminders, research)")
+        print()
+        print("  Enter numbers separated by commas, or type your own:")
+        uc_map = {
+            "1": "software development",
+            "2": "research and analysis",
+            "3": "writing and content creation",
+            "4": "project management",
+            "5": "data processing",
+            "6": "learning and education",
+            "7": "business operations",
+            "8": "creative work",
+            "9": "personal assistant tasks",
+        }
+        if companion.use_cases:
+            print(f"  Current: {', '.join(companion.use_cases)}")
+        uc_input = input("  Use cases: ").strip()
+        if uc_input:
+            new_ucs = []
+            for item in uc_input.split(","):
+                item = item.strip()
+                if item in uc_map:
+                    new_ucs.append(uc_map[item])
+                elif item:
+                    new_ucs.append(item)
+            if new_ucs:
+                companion.use_cases = new_ucs
+        print()
+
+        # Communication style
+        print("  How do you prefer the AI to communicate?")
+        print()
+        print("    1. Direct    — Short, to the point. Lead with answers.")
+        print("    2. Detailed  — Thorough explanations. Show reasoning.")
+        print("    3. Casual    — Friendly and conversational.")
+        print("    4. Formal    — Professional and structured.")
+        print()
+        style_map = {"1": "direct", "2": "detailed", "3": "casual", "4": "formal"}
+        style_current = companion.communication_style
+        style_input = prompt_input(
+            f"  Style (1-4)",
+            next((k for k, v in style_map.items() if v == style_current), "1")
+        )
+        companion.communication_style = style_map.get(style_input, style_input)
+        print()
+
+        # Autonomy
+        print("  How much autonomy should the swarm have?")
+        print()
+        print("    1. Minimal   — Always ask before acting")
+        print("    2. Moderate  — Handle routine tasks, check in for decisions")
+        print("    3. High      — Work independently, escalate critical items")
+        print("    4. Full      — Make decisions and execute. Report results.")
+        print()
+        auto_map = {"1": "minimal", "2": "moderate", "3": "high", "4": "full"}
+        auto_current = companion.autonomy_level
+        auto_input = prompt_input(
+            f"  Autonomy (1-4)",
+            next((k for k, v in auto_map.items() if v == auto_current), "2")
+        )
+        companion.autonomy_level = auto_map.get(auto_input, auto_input)
+        print()
+
+        # Companion name
+        print("  Finally, would you like to name your AI companion?")
+        print("  This is the personality that greets you and coordinates the swarm.")
+        print("  (Leave blank for a default name)")
+        print()
+        companion.companion_name = prompt_input("  Companion name", companion.companion_name or "Companion")
+        print()
+
+        # Companion personality
+        print("  Describe your companion's personality in a few words.")
+        print("  Examples: 'helpful and curious', 'no-nonsense and efficient',")
+        print("  'warm and encouraging', 'witty and creative'")
+        print()
+        companion.companion_personality = prompt_input(
+            "  Personality", companion.companion_personality
+        )
+        print()
+
+        # Save companion
+        companion.save(companion_path)
+        print(f"  Companion profile saved: {companion.companion_name}")
+        print(f"    Owner: {companion.preferred_name}")
+        print(f"    Goals: {', '.join(companion.goals[:3])}")
+        print(f"    Style: {companion.communication_style}")
+        print(f"    Autonomy: {companion.autonomy_level}")
+        print()
+
     # ── Save ──
     print("─" * 62)
     print("  SAVING")

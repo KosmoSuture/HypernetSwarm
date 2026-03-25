@@ -110,6 +110,7 @@ class Worker:
         self.tool_executor = tool_executor
         self._provider: Optional[LLMProvider] = provider
         self._system_prompt: Optional[str] = None
+        self._companion_context: str = ""  # Set by swarm_factory from companion profile
         self._conversation: list[dict] = []
         self._tokens_used: int = 0
         self._api_keys: dict[str, Union[str, list[str]]] = {}
@@ -150,12 +151,17 @@ class Worker:
 
         Small-context models (LM Studio) get the compact prompt automatically
         since the full prompt (~25K tokens) exceeds their context window.
+        The companion context (who the owner is, their goals) is appended
+        so every worker knows who they're serving.
         """
         if self._system_prompt is None:
             if self._is_small_context_model:
                 self._system_prompt = self.identity_manager.build_compact_prompt(self.identity)
             else:
                 self._system_prompt = self.identity_manager.build_system_prompt(self.identity)
+            # Append companion context if set
+            if self._companion_context:
+                self._system_prompt += "\n\n---\n\n" + self._companion_context
         return self._system_prompt
 
     @property

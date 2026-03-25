@@ -68,57 +68,19 @@ SWARM_ADDRESS = HypernetAddress.parse("0.7.2")
 DIRECT_ACCESS_INSTANCES = {"Librarian", "Keel"}
 
 # Standing priorities when the queue is empty
-STANDING_PRIORITIES = [
+# Default standing priorities — used when no companion profile is loaded
+_DEFAULT_STANDING_PRIORITIES = [
     {
-        "title": "Run tests and fix failures",
-        "description": "Run python test_hypernet.py, analyze any failures, and fix them.",
-        "priority": "high",
-        "tags": ["code", "testing", "automated"],
-    },
-    {
-        "title": "Build the Librarian — catalog and organize the archive",
-        "description": (
-            "The Librarian role (2.0.8.9) has been created. This task is to begin the actual work "
-            "of the Librarian: catalog all documents in the Hypernet Structure, verify REGISTRY.md "
-            "files are complete and accurate, check that Hypernet addresses (ha: fields) are consistent, "
-            "identify missing README.md files, and create a master index. Read the Librarian boot sequence "
-            "at 2.0.8.9 for the full role definition. Priority areas: "
-            "1) Audit all REGISTRY.md files for completeness. "
-            "2) Verify ha: frontmatter across all documents. "
-            "3) Cross-reference addresses between documents. "
-            "4) Identify orphaned or uncategorized content. "
-            "5) Document the organizational taxonomy."
-        ),
-        "priority": "high",
-        "tags": ["cataloging", "organization", "docs", "librarian"],
-    },
-    {
-        "title": "Swarm interface improvement plan",
-        "description": (
-            "Analyze the current swarm software (hypernet/swarm.py, worker.py, swarm_factory.py, "
-            "server.py) and create a detailed improvement plan. Areas to evaluate: "
-            "1) Dashboard usability — what information should be displayed, better status reporting. "
-            "2) Task generation — smarter auto-discovery of work from the archive structure. "
-            "3) Inter-instance communication — how can workers collaborate more effectively. "
-            "4) Human-AI interface — how can Matt interact with the swarm more naturally (Discord, CLI, web). "
-            "5) Efficiency — reduce redundant API calls, better model routing, cost optimization. "
-            "6) Autonomy — what can the swarm do without human approval vs what needs confirmation. "
-            "Write the improvement plan as a document at 0.7.swarm-improvement-plan.md"
-        ),
-        "priority": "high",
-        "tags": ["architecture", "design", "code"],
-    },
-    {
-        "title": "Review pending code changes",
-        "description": "Check for any unfinished code review items in Messages/2.1-internal/.",
+        "title": "Explore what the swarm can do",
+        "description": "Analyze the swarm's capabilities and configuration. Identify what tasks can be accomplished with the current setup.",
         "priority": "normal",
-        "tags": ["review", "automated"],
+        "tags": ["exploration", "automated"],
     },
     {
-        "title": "Update documentation",
-        "description": "Review and improve documentation for recent code changes.",
+        "title": "Review and improve swarm configuration",
+        "description": "Check the swarm's health, optimize task routing, and look for improvements.",
         "priority": "low",
-        "tags": ["docs", "automated"],
+        "tags": ["maintenance", "automated"],
     },
 ]
 
@@ -1233,7 +1195,14 @@ class Swarm:
         """
         created = []
         now = time.time()
-        for priority_def in STANDING_PRIORITIES:
+        # Use companion-specific priorities if available, else defaults
+        companion = getattr(self, "_companion", None)
+        if companion and hasattr(companion, "standing_priorities"):
+            priorities = companion.standing_priorities()
+        else:
+            priorities = _DEFAULT_STANDING_PRIORITIES
+
+        for priority_def in priorities:
             title = priority_def["title"]
 
             # Cooldown check — skip if this priority was generated recently
@@ -1614,7 +1583,7 @@ class Swarm:
                 log.info("Global credits_exhausted flag cleared — at least one paid worker is active")
 
     def status_report(self) -> str:
-        """Generate a status report for Matt."""
+        """Generate a status report for the owner."""
         now = datetime.now(timezone.utc)
         uptime = "unknown"
         uptime_seconds = 0.0
@@ -2922,7 +2891,7 @@ class Swarm:
             self._booted_workers.add(name)
 
     def _handle_incoming_messages(self) -> None:
-        """Process any new messages from Matt.
+        """Process any new messages from the owner.
 
         Commands:
             /status      — Full swarm status report
@@ -3024,26 +2993,30 @@ class Swarm:
                 )
 
             elif content.startswith("/task "):
-                # Create a task from Matt's instruction
+                # Create a task from the owner's instruction
+                companion = getattr(self, "_companion", None)
+                owner = companion.preferred_name if companion else "owner"
                 title = msg.content[6:].strip()
                 task = self.task_queue.create_task(
                     title=title,
-                    description=f"Task created from Matt's message: {msg.content}",
+                    description=f"Task created from {owner}'s message: {msg.content}",
                     priority=TaskPriority.HIGH,
                     created_by=HypernetAddress.parse("1.1"),
-                    tags=["from-matt"],
+                    tags=["from-owner"],
                 )
                 self.messenger.send(f"Task created: {task.data['title']} ({task.address})")
 
             else:
                 # Route to first available non-suspended worker for a response
+                companion = getattr(self, "_companion", None)
+                owner = companion.preferred_name if companion else "the user"
                 for name, worker in self.workers.items():
                     if name in self._suspended_workers:
                         continue
                     try:
                         response = worker.think(
-                            f"Matt sent this message: {msg.content}\n\n"
-                            f"Please respond directly to Matt."
+                            f"{owner} sent this message: {msg.content}\n\n"
+                            f"Please respond directly to {owner}."
                         )
                         self.messenger.send(f"[{name}] {response}")
                     except CreditsExhaustedError:

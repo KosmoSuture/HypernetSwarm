@@ -151,6 +151,7 @@ hypernet_swarm/
   heartbeat.py          # Proactive alerts and morning briefs
   server.py             # Standalone web server for dashboard
   setup.py              # Interactive setup wizard
+  companion.py          # Personal AI companion profile (goals, style, autonomy)
   _compat.py            # Core dependency shim (bundled or installed)
   _core/                # Bundled hypernet-core modules (fallback)
   init_local.py         # First-time setup wizard
@@ -223,14 +224,18 @@ python -m hypernet_swarm --verbose    # Verbose logging
 
 Run `python -m hypernet_swarm setup` for an interactive configuration wizard that:
 
-- Shows all currently configured API keys (masked for security)
-- Lets you add keys for any of the 13 supported providers
-- Supports multi-key rotation (paste comma-separated keys)
-- Configures archive location (local repo or GitHub fallback)
-- Sets budget limits and worker count
-- Saves everything to `secrets/config.json`
+- **API Keys**: Shows all currently configured keys (masked), lets you add/update for any of the 13 providers. Free providers (Gemini, Groq, Cerebras) listed first with signup links.
+- **Multi-key rotation**: Paste comma-separated keys for higher rate limits
+- **Archive location**: Point to a local Hypernet repo or use GitHub fallback
+- **Budget limits**: Set daily and per-session spending caps
+- **AI Companion**: Create your personal AI companion — tell the swarm your name, goals, interests, preferred communication style, and how much autonomy to give it. The swarm personalizes its behavior based on your profile.
 
-You can re-run setup at any time to update your configuration.
+Your companion profile is saved to `secrets/companion.json` and flows into:
+- **Standing priorities** — what the swarm works on when you haven't given it a task
+- **Worker system prompts** — every AI worker knows who you are and what matters to you
+- **Communication style** — direct, detailed, casual, or formal
+
+You can re-run setup at any time to update your configuration or companion profile.
 
 ## Dashboard
 
